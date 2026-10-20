@@ -1,0 +1,24 @@
+/* Only scan the Tailwind-styled views so Bootstrap class names in admin views don't leak in. */
+@import 'tailwindcss' source(none);
+
+@source '../views/welcome.blade.php';
+@source '../views/auth/**/*.blade.php';
+@source '../views/components/layouts/guest.blade.php';
+@source '../views/components/locale-switch.blade.php';
+
+@theme {
+    --font-khmer: 'Kantumruy Pro', 'Instrument Sans', ui-sans-serif, system-ui, sans-serif;
+    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
+        'Segoe UI Symbol', 'Noto Color Emoji';
+    --color-brand-50: #eef4ff;
+    --color-brand-100: #dbe6fe;
+    --color-brand-500: #3b6ef5;
+    --color-brand-600: #2554e8;
+    --color-brand-700: #1d42c9;
+    --color-brand-900: #142a6e;
+}
+
+:lang(km) body {
+    font-family: var(--font-khmer);
+    line-height: 1.7;
+}
