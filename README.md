@@ -1,58 +1,193 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# LoanPro – Loan Management System
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+A loan management system for microfinance institutions and lenders with multiple branches. It covers the whole loan lifecycle: borrower registration, application, approval, disbursement, repayment, arrears follow-up and write-off. Double-entry accounting runs in the background, and the whole interface is available in **English** and **Khmer (ខ្មែរ)**.
 
-## About Laravel
+Built with Laravel 13, AdminLTE 4 (Bootstrap 5) for the admin panel, and Tailwind CSS 4 for the public and login pages.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+## Features
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+**Lending**
+- Borrower profiles: KYC fields, photo, uploaded documents and blacklisting
+- Loan products: flat or reducing-balance (EMI) interest; daily, weekly, every-2-weeks or monthly repayments; amount and term limits; processing fee; late penalty with grace days
+- Loan workflow: application → approval or rejection → disbursement → repayments → closed or written off
+- Repayment schedule created at disbursement, with a printable schedule and receipts
+- Payments go to the oldest unpaid installment first: penalty, then interest, then principal
+- Late penalties are charged automatically by a scheduled job
+- Loan calculator and a live estimate on the application form
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+**Branches**
+- Staff assigned to a branch only see that branch's borrowers, loans, payments and books
+- Administrators and head-office staff can switch between branches or view all of them
+- The dashboard compares branches side by side
 
-## Learning Laravel
+**Accounting**
+- Chart of accounts with English and Khmer names
+- Automatic journal entries for disbursements, repayments and write-offs
+- Expense and income forms, manual journal entries, and reversals
+- Account ledger, trial balance, income statement and balance sheet, per branch or for all branches
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
+**Reporting and administration**
+- Dashboard with headline figures (outstanding balance, collections, overdue amount, portfolio at risk), a 12-month chart, and overdue and upcoming installments
+- Collections, disbursements, arrears/aging and portfolio reports with CSV export
+- Roles: Administrator, Manager, Loan Officer and Accountant
+- Activity log, company and currency settings, light/dark mode
 
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+## Roles
 
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
+| Role | Can do |
+| --- | --- |
+| Loan Officer | Register borrowers, submit applications, receive repayments |
+| Manager | Everything a Loan Officer can, plus: approve, reject and disburse loans; manage loan products; view reports and accounting |
+| Accountant | Everything a Loan Officer can, plus: accounting, financial statements and reports |
+| Administrator | Everything above, plus: write off loans; manage branches, users and settings; view the activity log; see all branches |
 
-## Agentic Development
+## Requirements
 
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+- PHP 8.3 or newer
+- Composer 2
+- Node.js 20 or newer and npm
+- MySQL 8 (SQLite also works for local testing)
+
+## Installation
 
 ```bash
-composer require laravel/boost --dev
+git clone https://github.com/rsokkheng/loan-management-system.git
+cd loan-management-system
 
-php artisan boost:install
+composer install
+npm install
+npm run build
+
+cp .env.example .env
+php artisan key:generate
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+Create a MySQL database. Then set `DB_DATABASE`, `DB_USERNAME` and `DB_PASSWORD` in `.env`, and run:
 
-## Contributing
+```bash
+php artisan migrate --seed
+php artisan storage:link
+php artisan app:create-admin
+```
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+`migrate --seed` creates only the base data a new installation needs: company settings, the chart of accounts and a "Head Office" branch. It adds no users or sample records, and it's safe to run again. `app:create-admin` asks for a name, email and password and creates the first administrator.
 
-## Code of Conduct
+Then serve the app, for example with Laravel Herd or `composer run dev`.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+### Demo data (development only)
 
-## Security Vulnerabilities
+To try the system with realistic data, load the demo on an **empty** development database:
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+```bash
+php artisan migrate:fresh --seed
+php artisan db:seed --class=DemoSeeder
+```
 
-## License
+This adds 3 branches, staff accounts, loan products, borrowers, a year of loans and repayments, and the matching accounting entries. `DemoSeeder` refuses to run when `APP_ENV=production`.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+All demo accounts use the password `password`.
+
+| Email | Role | Branch |
+| --- | --- | --- |
+| admin@loanpro.test | Administrator | All branches |
+| accountant@loanpro.test | Accountant | All branches |
+| manager@loanpro.test | Manager | Head Office – Phnom Penh |
+| officer@loanpro.test | Loan Officer | Head Office – Phnom Penh |
+| sr.manager@loanpro.test | Manager | Siem Reap |
+| sr.officer@loanpro.test | Loan Officer | Siem Reap |
+| bb.manager@loanpro.test | Manager | Battambang |
+| bb.officer@loanpro.test | Loan Officer | Battambang |
+
+## Deploying to production
+
+1. Set these values in the server's `.env`:
+
+    ```dotenv
+    APP_ENV=production
+    APP_DEBUG=false
+    APP_URL=https://your-domain.com
+    DB_CONNECTION=mysql
+    DB_DATABASE=...
+    DB_USERNAME=...
+    DB_PASSWORD=...
+    ```
+
+2. Install, build and set up the database:
+
+    ```bash
+    composer install --no-dev --optimize-autoloader
+    npm ci && npm run build
+    php artisan key:generate        # first deploy only
+    php artisan migrate --force --seed
+    php artisan storage:link
+    php artisan app:create-admin    # first deploy only
+    php artisan optimize
+    ```
+
+3. Add the scheduler to cron (see [Scheduled jobs](#scheduled-jobs)) so late penalties are charged every night.
+
+4. Sign in as the administrator. Then set the company details and currency under **Settings**, rename or add branches, create staff users, and set up your loan products.
+
+On later deploys, run `composer install --no-dev --optimize-autoloader`, `npm ci && npm run build`, `php artisan migrate --force` and `php artisan optimize`. Never run `migrate:fresh` or `DemoSeeder` on the production server.
+
+## Scheduled jobs
+
+Late penalties are charged by `loans:apply-penalties` every day at 00:30. In production, add the Laravel scheduler to cron:
+
+```cron
+* * * * * cd /path/to/loan-management-system && php artisan schedule:run >> /dev/null 2>&1
+```
+
+For local development, run `php artisan schedule:work` instead.
+
+## Useful commands
+
+| Command | Purpose |
+| --- | --- |
+| `php artisan loans:apply-penalties` | Charge late penalties now |
+| `php artisan app:create-admin` | Create an administrator account (the password is asked for, not typed on the command line) |
+| `php artisan accounting:backfill` | Create journal entries for loans and payments that don't have any yet (for example, data from before accounting was added) |
+| `php artisan db:seed --class=DemoSeeder` | Load demo data into an empty development database |
+| `php artisan test` | Run the test suite |
+| `npm run dev` | Rebuild CSS and JavaScript as you edit |
+
+## Accounting entries
+
+Loan activity is posted to the books automatically:
+
+| Event | Debit | Credit |
+| --- | --- | --- |
+| Loan disbursed | Loans Receivable | Cash / Bank / Mobile Money (net payout), Processing Fee Income |
+| Repayment received | Cash / Bank / Mobile Money | Loans Receivable (principal), Interest Income, Penalty Income |
+| Loan written off | Loan Loss Expense | Loans Receivable (unpaid principal) |
+
+Interest is recorded as income when it is paid (cash basis). The default chart of accounts is created automatically the first time it is needed.
+
+## Project structure
+
+| Path | Contents |
+| --- | --- |
+| `app/Services/LoanCalculator.php` | Repayment schedules for flat and reducing-balance interest |
+| `app/Services/LoanService.php` | Loan lifecycle: apply, approve, reject, disburse, write off |
+| `app/Services/RepaymentService.php` | Splitting each payment across installments |
+| `app/Services/PenaltyService.php` | Late penalties |
+| `app/Services/LedgerService.php` | Double-entry journal posting and reversals |
+| `app/Services/AccountingReportService.php` | Trial balance, income statement, balance sheet, ledgers |
+| `app/Services/BranchContext.php` and `app/Models/Concerns/BelongsToBranch.php` | Limiting data to the user's branch |
+| `resources/css/admin.css`, `resources/js/admin.js` | Admin panel styles and scripts (AdminLTE 4 + Bootstrap 5) |
+| `resources/css/app.css` | Landing and login page styles (Tailwind CSS 4) |
+| `lang/km.json`, `lang/km/` | Khmer translations |
+
+AdminLTE/Bootstrap and Tailwind are built from separate Vite entrypoints and never load on the same page, because their class names clash.
+
+## Translations
+
+Interface text is written in English inside `__('...')` calls, and the Khmer version lives in `lang/km.json`. When you add new text, add its Khmer translation too: `LocalizationTest` fails if any string is missing. Each user's language is saved on their profile and can be changed from the top bar.
+
+## Testing
+
+```bash
+php artisan test
+```
+
+The tests run on an in-memory SQLite database. They cover schedule calculations, the loan workflow, payment allocation, penalties, branch isolation, accounting entries and statements, translations, and permissions. They also open every page in English and in Khmer.

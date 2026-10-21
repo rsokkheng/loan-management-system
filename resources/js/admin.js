@@ -135,6 +135,44 @@ document.addEventListener('DOMContentLoaded', () => {
         update();
     }
 
+    // Cascading address: province → district → commune → village.
+    document.querySelectorAll('[data-address-fields]').forEach((group) => {
+        const select = (name) => group.querySelector(`select[name="${name}"]`);
+
+        const reset = (field) => {
+            const placeholder = field.querySelector('option[value=""]');
+            field.replaceChildren(...(placeholder ? [placeholder] : []));
+            field.value = '';
+        };
+
+        group.querySelectorAll('select[data-location-child]').forEach((parent) => {
+            parent.addEventListener('change', async () => {
+                // Clear every level below the one that changed.
+                let child = select(parent.dataset.locationChild);
+                const first = child;
+                while (child) {
+                    reset(child);
+                    child = child.dataset.locationChild ? select(child.dataset.locationChild) : null;
+                }
+
+                if (!parent.value || !first?.dataset.locationUrl) {
+                    return;
+                }
+
+                first.disabled = true;
+                try {
+                    const response = await fetch(`${first.dataset.locationUrl}?parent=${encodeURIComponent(parent.value)}`, {
+                        headers: { Accept: 'application/json' },
+                    });
+                    const options = response.ok ? await response.json() : [];
+                    options.forEach(({ id, name }) => first.append(new Option(name, id)));
+                } finally {
+                    first.disabled = false;
+                }
+            });
+        });
+    });
+
     // Calculator: pre-fill fields from a chosen product.
     const calcProduct = document.getElementById('calc-product');
     if (calcProduct) {

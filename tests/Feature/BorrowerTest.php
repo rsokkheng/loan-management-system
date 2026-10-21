@@ -6,6 +6,7 @@ use App\Models\Borrower;
 use App\Models\Branch;
 use App\Models\Loan;
 use App\Models\User;
+use App\Models\Village;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
@@ -20,7 +21,13 @@ class BorrowerTest extends TestCase
      */
     private function validPayload(array $overrides = []): array
     {
+        $village = Village::factory()->create();
+
         return array_merge([
+            'province_id' => $village->commune->district->province_id,
+            'district_id' => $village->commune->district_id,
+            'commune_id' => $village->commune_id,
+            'village_id' => $village->id,
             'first_name' => 'Sokha',
             'last_name' => 'Meas',
             'gender' => 'female',
@@ -28,7 +35,6 @@ class BorrowerTest extends TestCase
             'national_id' => '010203040',
             'phone' => '012 345 678',
             'address' => '12 Street 271',
-            'city' => 'Phnom Penh',
             'monthly_income' => '850',
         ], $overrides);
     }

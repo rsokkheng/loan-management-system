@@ -19,7 +19,7 @@
                             <tr>
                                 <td>
                                     <div class="fw-semibold">{{ $branch->name }}</div>
-                                    <div class="small text-secondary">{{ $branch->address ?: '—' }}</div>
+                                    <div class="small text-secondary">{{ $branch->full_address ?: '—' }}</div>
                                 </td>
                                 <td><code>{{ $branch->code }}</code></td>
                                 <td>{{ $branch->manager?->name ?? '—' }}</td>

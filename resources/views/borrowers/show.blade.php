@@ -30,7 +30,7 @@
                         'National ID' => $borrower->national_id,
                         'Phone' => $borrower->phone,
                         'Email' => $borrower->email ?: '—',
-                        'Address' => trim($borrower->address.', '.$borrower->city, ', '),
+                        'Address' => $borrower->full_address ?: '—',
                         'Occupation' => $borrower->occupation ?: '—',
                         'Employer' => $borrower->employer ?: '—',
                     ] as $label => $value)

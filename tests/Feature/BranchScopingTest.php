@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Loan;
 use App\Models\LoanProduct;
 use App\Models\User;
+use App\Models\Village;
 use App\Services\LoanService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
@@ -81,7 +82,7 @@ class BranchScopingTest extends TestCase
     {
         $payload = [
             'first_name' => 'Dara', 'last_name' => 'Ouk', 'gender' => 'male', 'national_id' => '123456789',
-            'phone' => '012 000 000', 'address' => 'Street 1',
+            'phone' => '012 000 000', 'address' => 'Street 1', ...$this->villageAddress(),
         ];
         $admin = User::factory()->admin()->create();
 
@@ -97,7 +98,7 @@ class BranchScopingTest extends TestCase
 
         $this->actingAs($officer)->post(route('borrowers.store'), [
             'first_name' => 'Dara', 'last_name' => 'Ouk', 'gender' => 'male', 'national_id' => '123456789',
-            'phone' => '012 000 000', 'address' => 'Street 1', 'branch_id' => $this->siemReap->id,
+            'phone' => '012 000 000', 'address' => 'Street 1', ...$this->villageAddress(), 'branch_id' => $this->siemReap->id,
         ]);
 
         $this->assertSame($this->phnomPenh->id, Borrower::sole()->branch_id);
@@ -125,6 +126,21 @@ class BranchScopingTest extends TestCase
         $this->post(route('payments.store', $loan), ['amount' => 50, 'payment_date' => today()->toDateString(), 'method' => 'cash'])->assertSessionHasNoErrors();
 
         $this->assertSame($this->siemReap->id, $loan->payments()->sole()->branch_id);
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    private function villageAddress(): array
+    {
+        $village = Village::factory()->create();
+
+        return [
+            'province_id' => $village->commune->district->province_id,
+            'district_id' => $village->commune->district_id,
+            'commune_id' => $village->commune_id,
+            'village_id' => $village->id,
+        ];
     }
 
     public function test_admins_can_manage_branches_but_managers_cannot(): void

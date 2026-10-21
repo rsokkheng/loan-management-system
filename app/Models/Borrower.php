@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\Gender;
 use App\Enums\LoanStatus;
 use App\Models\Concerns\BelongsToBranch;
+use App\Models\Concerns\HasAddress;
 use Database\Factories\BorrowerFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -19,13 +20,13 @@ use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'branch_id',     'first_name', 'last_name', 'gender', 'date_of_birth', 'national_id', 'phone', 'email',
-    'address', 'city', 'occupation', 'employer', 'monthly_income', 'photo_path',
+    'address', 'province_id', 'district_id', 'commune_id', 'village_id', 'occupation', 'employer', 'monthly_income', 'photo_path',
     'is_blacklisted', 'notes', 'created_by',
 ])]
 class Borrower extends Model
 {
     /** @use HasFactory<BorrowerFactory> */
-    use BelongsToBranch, HasFactory, SoftDeletes;
+    use BelongsToBranch, HasAddress, HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {

@@ -21,7 +21,7 @@ class BorrowerController extends Controller
         $borrowers = Borrower::query()
             ->search($request->string('search')->trim()->value())
             ->when($request->input('status') === 'blacklisted', fn ($query) => $query->where('is_blacklisted', true))
-            ->with('branch')
+            ->with(['branch', 'province', 'district'])
             ->withCount('loans')
             ->orderByDesc('id')
             ->paginate(15)
@@ -58,6 +58,7 @@ class BorrowerController extends Controller
     public function show(Borrower $borrower): View
     {
         $borrower->load([
+            ...Borrower::ADDRESS_RELATIONS,
             'branch',
             'creator',
             'documents.uploader',

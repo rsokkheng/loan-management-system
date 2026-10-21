@@ -15,6 +15,7 @@ use App\Http\Controllers\LoanController;
 use App\Http\Controllers\LoanProductController;
 use App\Http\Controllers\LoanWorkflowController;
 use App\Http\Controllers\LocaleController;
+use App\Http\Controllers\LocationController;
 use App\Http\Controllers\PaymentController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReportController;
@@ -36,6 +37,12 @@ Route::middleware(['auth', 'active'])->group(function () {
     Route::get('dashboard', DashboardController::class)->name('dashboard');
     Route::get('calculator', CalculatorController::class)->name('calculator');
     Route::post('branch/switch', [BranchController::class, 'switch'])->name('branches.switch');
+
+    Route::prefix('locations')->name('locations.')->group(function () {
+        Route::get('districts', [LocationController::class, 'districts'])->name('districts');
+        Route::get('communes', [LocationController::class, 'communes'])->name('communes');
+        Route::get('villages', [LocationController::class, 'villages'])->name('villages');
+    });
 
     Route::get('profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::put('profile', [ProfileController::class, 'update'])->name('profile.update');

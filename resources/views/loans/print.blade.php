@@ -19,7 +19,7 @@
             <div class="fw-semibold">{{ $loan->borrower->full_name }}</div>
             <div class="small">{{ $loan->borrower->code }} · {{ __('ID') }} {{ $loan->borrower->national_id }}</div>
             <div class="small">{{ $loan->borrower->phone }}</div>
-            <div class="small">{{ $loan->borrower->address }}{{ $loan->borrower->city ? ', '.$loan->borrower->city : '' }}</div>
+            <div class="small">{{ $loan->borrower->full_address }}</div>
         </div>
         <div class="col-6">
             <table class="table table-sm table-borderless small mb-0">

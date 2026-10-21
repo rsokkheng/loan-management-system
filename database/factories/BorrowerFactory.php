@@ -29,7 +29,6 @@ class BorrowerFactory extends Factory
             'phone' => fake()->numerify('0## ### ###'),
             'email' => fake()->optional(0.6)->safeEmail(),
             'address' => fake()->streetAddress(),
-            'city' => fake()->randomElement(['Phnom Penh', 'Siem Reap', 'Battambang', 'Kampong Cham', 'Sihanoukville', 'Kampot']),
             'occupation' => fake()->randomElement(['Shop owner', 'Farmer', 'Teacher', 'Tailor', 'Driver', 'Mechanic', 'Market vendor', 'Nurse', 'Restaurant owner']),
             'employer' => fake()->optional(0.5)->company(),
             'monthly_income' => fake()->randomFloat(2, 300, 4000),

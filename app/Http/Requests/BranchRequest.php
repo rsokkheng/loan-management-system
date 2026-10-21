@@ -2,12 +2,15 @@
 
 namespace App\Http\Requests;
 
+use App\Http\Requests\Concerns\ValidatesAddress;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class BranchRequest extends FormRequest
 {
+    use ValidatesAddress;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -20,10 +23,18 @@ class BranchRequest extends FormRequest
             'code' => ['required', 'string', 'max:20', 'alpha_dash', Rule::unique('branches')->ignore($this->route('branch'))],
             'phone' => ['nullable', 'string', 'max:50'],
             'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['nullable', 'string', 'max:255'],
             'manager_id' => ['nullable', 'integer', Rule::exists('users', 'id')],
             'is_active' => ['boolean'],
+            ...$this->addressRules(required: false),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return $this->addressAttributes();
     }
 
     protected function prepareForValidation(): void

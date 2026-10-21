@@ -9,7 +9,7 @@ use App\Models\JournalEntry;
 use App\Models\Loan;
 use App\Models\Payment;
 use App\Models\User;
-use Database\Seeders\DatabaseSeeder;
+use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
@@ -25,7 +25,7 @@ class PageRenderingTest extends TestCase
     {
         parent::setUp();
 
-        $this->seed(DatabaseSeeder::class);
+        $this->seed(DemoSeeder::class);
     }
 
     /**

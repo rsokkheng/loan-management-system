@@ -110,7 +110,7 @@ class LoanController extends Controller
      */
     public function print(Loan $loan): View
     {
-        $loan->load(['branch', 'borrower', 'product', 'officer', 'installments']);
+        $loan->load(['branch', 'borrower' => fn ($query) => $query->with(Borrower::ADDRESS_RELATIONS), 'product', 'officer', 'installments']);
 
         return view('loans.print', compact('loan'));
     }

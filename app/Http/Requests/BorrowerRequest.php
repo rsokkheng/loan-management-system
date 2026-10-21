@@ -3,12 +3,15 @@
 namespace App\Http\Requests;
 
 use App\Enums\Gender;
+use App\Http\Requests\Concerns\ValidatesAddress;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
 class BorrowerRequest extends FormRequest
 {
+    use ValidatesAddress;
+
     /**
      * Get the validation rules that apply to the request.
      *
@@ -27,15 +30,22 @@ class BorrowerRequest extends FormRequest
             'national_id' => ['required', 'string', 'max:50', Rule::unique('borrowers')->ignore($borrower)],
             'phone' => ['required', 'string', 'max:30'],
             'email' => ['nullable', 'email', 'max:255'],
-            'address' => ['required', 'string', 'max:255'],
-            'city' => ['nullable', 'string', 'max:100'],
             'occupation' => ['nullable', 'string', 'max:100'],
             'employer' => ['nullable', 'string', 'max:150'],
             'monthly_income' => ['nullable', 'numeric', 'min:0', 'max:9999999999'],
             'photo' => ['nullable', 'image', 'max:2048'],
             'is_blacklisted' => ['boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            ...$this->addressRules(required: true),
         ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public function attributes(): array
+    {
+        return $this->addressAttributes();
     }
 
     /**

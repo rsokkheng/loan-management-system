@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\HasAddress;
 use Database\Factories\BranchFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -11,11 +12,11 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'code', 'phone', 'email', 'address', 'manager_id', 'is_active'])]
+#[Fillable(['name', 'code', 'phone', 'email', 'address', 'province_id', 'district_id', 'commune_id', 'village_id', 'manager_id', 'is_active'])]
 class Branch extends Model
 {
     /** @use HasFactory<BranchFactory> */
-    use HasFactory;
+    use HasAddress, HasFactory;
 
     /**
      * Get the attributes that should be cast.

@@ -17,10 +17,10 @@ class Setting extends Model
      * @var array<string, string>
      */
     public const DEFAULTS = [
-        'company_name' => 'LoanPro Microfinance',
-        'company_email' => 'info@loanpro.test',
-        'company_phone' => '+855 12 345 678',
-        'company_address' => 'Phnom Penh, Cambodia',
+        'company_name' => 'KEP Loan',
+        'company_email' => '',
+        'company_phone' => '',
+        'company_address' => '',
         'currency_code' => 'USD',
         'currency_symbol' => '$',
         'receipt_footer' => 'Thank you for your payment.',

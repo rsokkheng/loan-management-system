@@ -15,7 +15,7 @@
             <div class="table-responsive">
                 <table class="table table-hover table-nowrap align-middle mb-0">
                     <thead>
-                        <tr><th>{{ __('Borrower') }}</th><th>{{ __('Code') }}</th><th>{{ __('Phone') }}</th><th>{{ __('National ID') }}</th><th>{{ __('City') }}</th><th class="text-center">{{ __('Loans') }}</th><th></th></tr>
+                        <tr><th>{{ __('Borrower') }}</th><th>{{ __('Code') }}</th><th>{{ __('Phone') }}</th><th>{{ __('National ID') }}</th><th>{{ __('Location') }}</th><th class="text-center">{{ __('Loans') }}</th><th></th></tr>
                     </thead>
                     <tbody>
                         @forelse ($borrowers as $borrower)
@@ -36,7 +36,7 @@
                                 <td>{{ $borrower->phone }}</td>
                                 <td>{{ $borrower->national_id }}</td>
                                 <td>
-                                    {{ $borrower->city ?: '—' }}
+                                    {{ collect([$borrower->district?->display_name, $borrower->province?->display_name])->filter()->implode(', ') ?: '—' }}
                                     @if (! $currentBranch)<div class="small text-secondary"><i class="bi bi-building"></i> {{ $borrower->branch?->name }}</div>@endif
                                 </td>
                                 <td class="text-center"><span class="badge text-bg-light border">{{ $borrower->loans_count }}</span></td>

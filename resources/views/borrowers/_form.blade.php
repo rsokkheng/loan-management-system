@@ -21,8 +21,9 @@
                 <div class="row">
                     <x-form.input name="phone" :label="__('Phone')" :value="$borrower->phone" required wrapper="col-md-6 mb-3" />
                     <x-form.input name="email" type="email" :label="__('Email')" :value="$borrower->email" wrapper="col-md-6 mb-3" />
-                    <x-form.input name="address" :label="__('Address')" :value="$borrower->address" required wrapper="col-md-8 mb-3" />
-                    <x-form.input name="city" :label="__('City / Province')" :value="$borrower->city" wrapper="col-md-4 mb-3" />
+                </div>
+                <x-address-fields :model="$borrower" required />
+                <div class="row">
                 </div>
             </div>
         </div>

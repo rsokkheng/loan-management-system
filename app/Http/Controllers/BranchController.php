@@ -17,7 +17,7 @@ class BranchController extends Controller
     public function index(): View
     {
         $branches = Branch::query()
-            ->with('manager')
+            ->with(['manager', ...Branch::ADDRESS_RELATIONS])
             ->withCount(['users', 'borrowers' => fn ($query) => $query->withoutGlobalScopes(), 'loans' => fn ($query) => $query->withoutGlobalScopes()])
             ->orderBy('name')
             ->get();
