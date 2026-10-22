@@ -9,7 +9,9 @@
             <div class="card-body">
                 <div class="row">
                     <x-form.input name="entry_date" type="date" :label="__('Date')" :value="today()->toDateString()" :max="today()->toDateString()" required wrapper="col-md-3 mb-3" />
-                    <x-form.input name="description" :label="__('Description')" required wrapper="col-md-6 mb-3" :placeholder="__('e.g. Owner capital injection')" />
+                    <x-form.input name="description" :label="__('Description')" required wrapper="col-md-4 mb-3" :placeholder="__('e.g. Owner capital injection')" />
+                    <x-form.select name="currency" :label="__('Currency')" :value="$reportingCurrency" required wrapper="col-md-2 mb-3"
+                        :options="collect(\App\Enums\Currency::cases())->mapWithKeys(fn ($c) => [$c->value => $c->value])" />
                     @if ($canSwitchBranch)
                         <x-form.select name="branch_id" :label="__('Branch')" :value="$currentBranch?->id" :options="$branches" required :placeholder="__('Select…')" wrapper="col-md-3 mb-3" />
                     @endif

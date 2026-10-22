@@ -2,11 +2,14 @@
 
 namespace App\Models;
 
+use App\Enums\CollateralStatus;
+use App\Enums\Currency;
 use App\Enums\InstallmentStatus;
 use App\Enums\InterestMethod;
 use App\Enums\LoanStatus;
 use App\Enums\PaymentMethod;
 use App\Enums\RepaymentFrequency;
+use App\Enums\ScheduleType;
 use App\Models\Concerns\BelongsToBranch;
 use Database\Factories\LoanFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -21,8 +24,8 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
-    'branch_id',     'borrower_id', 'loan_product_id', 'loan_officer_id', 'principal_amount', 'interest_rate',
-    'interest_method', 'repayment_frequency', 'term', 'processing_fee', 'late_penalty_percent',
+    'branch_id',     'borrower_id', 'loan_product_id', 'loan_officer_id', 'currency', 'principal_amount', 'interest_rate',
+    'interest_method', 'repayment_frequency', 'schedule_type', 'flexible_plan', 'term', 'processing_fee', 'late_penalty_percent',
     'grace_period_days', 'total_interest', 'total_payable', 'status', 'purpose', 'notes',
     'application_date', 'created_by',
 ])]
@@ -48,10 +51,13 @@ class Loan extends Model
     protected function casts(): array
     {
         return [
+            'currency' => Currency::class,
             'principal_amount' => 'decimal:2',
             'interest_rate' => 'decimal:4',
             'interest_method' => InterestMethod::class,
             'repayment_frequency' => RepaymentFrequency::class,
+            'schedule_type' => ScheduleType::class,
+            'flexible_plan' => 'array',
             'term' => 'integer',
             'processing_fee' => 'decimal:2',
             'late_penalty_percent' => 'decimal:2',
@@ -64,11 +70,14 @@ class Loan extends Model
             'application_date' => 'date',
             'approved_at' => 'datetime',
             'rejected_at' => 'datetime',
+            'returned_at' => 'datetime',
             'disbursed_at' => 'date',
             'disbursement_method' => PaymentMethod::class,
             'first_repayment_date' => 'date',
             'maturity_date' => 'date',
             'closed_at' => 'datetime',
+            'restructured_at' => 'date',
+            'restructure_count' => 'integer',
         ];
     }
 
@@ -99,9 +108,17 @@ class Loan extends Model
         });
     }
 
+    /**
+     * Applications can be edited while waiting for approval or after being returned for correction.
+     */
+    public function hasFlexibleSchedule(): bool
+    {
+        return $this->schedule_type === ScheduleType::Flexible;
+    }
+
     public function isEditable(): bool
     {
-        return $this->status === LoanStatus::Pending;
+        return in_array($this->status, [LoanStatus::Pending, LoanStatus::Returned], true);
     }
 
     public function isOverdue(): bool
@@ -132,6 +149,17 @@ class Loan extends Model
     {
         $query->where('status', LoanStatus::Active)
             ->whereHas('installments', fn (Builder $query) => $query->overdue());
+    }
+
+    /**
+     * Loans denominated in the given currency.
+     *
+     * @param  Builder<Loan>  $query
+     */
+    #[Scope]
+    protected function inCurrency(Builder $query, Currency $currency): void
+    {
+        $query->where($query->qualifyColumn('currency'), $currency);
     }
 
     /**
@@ -193,6 +221,14 @@ class Loan extends Model
     /**
      * @return BelongsTo<User, $this>
      */
+    public function returner(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'returned_by');
+    }
+
+    /**
+     * @return BelongsTo<User, $this>
+     */
     public function disburser(): BelongsTo
     {
         return $this->belongsTo(User::class, 'disbursed_by');
@@ -220,6 +256,62 @@ class Loan extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(Payment::class);
+    }
+
+    /**
+     * @return HasMany<LoanRestructure, $this>
+     */
+    public function restructures(): HasMany
+    {
+        return $this->hasMany(LoanRestructure::class)->latest('id');
+    }
+
+    /**
+     * @return HasMany<Guarantor, $this>
+     */
+    public function guarantors(): HasMany
+    {
+        return $this->hasMany(Guarantor::class)->orderBy('id');
+    }
+
+    /**
+     * @return HasMany<Collateral, $this>
+     */
+    public function collaterals(): HasMany
+    {
+        return $this->hasMany(Collateral::class)->orderBy('id');
+    }
+
+    /**
+     * Value of collateral still held, as a percentage of the principal.
+     */
+    public function collateralCoverage(): float
+    {
+        $held = $this->collaterals->where('status', CollateralStatus::Held)->sum('estimated_value');
+
+        return (float) $this->principal_amount > 0 ? round($held / (float) $this->principal_amount * 100, 1) : 0.0;
+    }
+
+    /**
+     * Whether the user prepared this application (the "maker"), and so may not
+     * approve it themselves when maker-checker control is switched on.
+     */
+    public function isMadeBy(User $user): bool
+    {
+        return $user->id === $this->created_by || $user->id === $this->loan_officer_id;
+    }
+
+    public static function makerCheckerEnabled(): bool
+    {
+        return Setting::get('require_maker_checker') === '1';
+    }
+
+    /**
+     * Guarantors and collateral can be changed until the money is released.
+     */
+    public function securityIsEditable(): bool
+    {
+        return in_array($this->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Approved], true);
     }
 
     /**

@@ -15,6 +15,9 @@
                 <div class="d-flex align-items-center gap-2">
                     <h4 class="mb-0">{{ $loan->reference }}</h4>
                     <x-badge :status="$loan->status" />
+                    @if ($loan->restructure_count > 0)
+                        <span class="badge rounded-pill text-bg-info"><i class="bi bi-calendar2-range me-1"></i>{{ __('Restructured') }}{{ $loan->restructure_count > 1 ? ' ×'.$loan->restructure_count : '' }}</span>
+                    @endif
                     @if ($isActive && $overdueBalance > 0)
                         <span class="badge rounded-pill text-bg-danger"><i class="bi bi-exclamation-triangle me-1"></i>{{ __('Overdue') }}</span>
                     @endif
@@ -26,13 +29,35 @@
             </div>
 
             <div class="d-flex flex-wrap gap-2">
-                @if ($loan->status === LoanStatus::Pending)
+                @if ($loan->isEditable())
                     <a href="{{ route('loans.edit', $loan) }}" class="btn btn-outline-secondary"><i class="bi bi-pencil me-1"></i> {{ __('Edit') }}</a>
+                @endif
+
+                @if ($loan->status === LoanStatus::Returned)
+                    <form method="POST" action="{{ route('loans.resubmit', $loan) }}" data-confirm="{{ __('Resubmit :reference for approval?', ['reference' => $loan->reference]) }}">
+                        @csrf
+                        <button class="btn btn-primary"><i class="bi bi-arrow-repeat me-1"></i> {{ __('Resubmit for Approval') }}</button>
+                    </form>
+                @endif
+
+                @if ($loan->status === LoanStatus::Pending)
                     @can('approve-loans')
-                        <form method="POST" action="{{ route('loans.approve', $loan) }}" data-confirm="Approve loan {{ $loan->reference }} for {{ $loan->borrower->full_name }}?">
-                            @csrf
-                            <button class="btn btn-success"><i class="bi bi-check2-circle me-1"></i> {{ __('Approve') }}</button>
-                        </form>
+                        @if (\App\Models\Loan::makerCheckerEnabled() && $loan->isMadeBy(auth()->user()))
+                            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip" title="{{ __('You prepared this application, so another staff member must approve it.') }}">
+                                <button class="btn btn-success" disabled><i class="bi bi-person-lock me-1"></i> {{ __('Approve') }}</button>
+                            </span>
+                        @elseif (auth()->user()->canApproveAmount((float) $loan->principal_amount, $loan->currency))
+                            <form method="POST" action="{{ route('loans.approve', $loan) }}" data-confirm="Approve loan {{ $loan->reference }} for {{ $loan->borrower->full_name }}?">
+                                @csrf
+                                <button class="btn btn-success"><i class="bi bi-check2-circle me-1"></i> {{ __('Approve') }}</button>
+                            </form>
+                        @else
+                            <span class="d-inline-block" tabindex="0" data-bs-toggle="tooltip"
+                                title="{{ __('Above your approval limit of :limit. An administrator must approve.', ['limit' => $loan->currency->format(auth()->user()->approvalLimit($loan->currency))]) }}">
+                                <button class="btn btn-success" disabled><i class="bi bi-lock me-1"></i> {{ __('Approve') }}</button>
+                            </span>
+                        @endif
+                        <button class="btn btn-outline-warning" data-bs-toggle="modal" data-bs-target="#returnModal"><i class="bi bi-arrow-return-left me-1"></i> {{ __('Return for Correction') }}</button>
                     @endcan
                 @endif
 
@@ -42,7 +67,7 @@
                     @endcan
                 @endif
 
-                @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Approved], true))
+                @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Approved], true))
                     @can('approve-loans')
                         <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#rejectModal"><i class="bi bi-x-circle me-1"></i> {{ __('Reject') }}</button>
                     @endcan
@@ -50,16 +75,28 @@
 
                 @if ($isActive)
                     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#paymentModal"><i class="bi bi-cash-coin me-1"></i> {{ __('Receive Payment') }}</button>
+                    <a href="{{ route('loans.settle', $loan) }}" class="btn btn-outline-success"><i class="bi bi-check2-all me-1"></i> {{ __('Early Settlement') }}</a>
+                    @can('approve-loans')
+                        <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#restructureModal"><i class="bi bi-calendar2-range me-1"></i> {{ __('Restructure') }}</button>
+                    @endcan
                     @can('write-off-loans')
                         <button class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#writeOffModal"><i class="bi bi-slash-circle me-1"></i> {{ __('Write Off') }}</button>
                     @endcan
                 @endif
 
+                @if ($loan->status === LoanStatus::WrittenOff && $loan->outstanding_balance > 0)
+                    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#recoveryModal"><i class="bi bi-arrow-counterclockwise me-1"></i> {{ __('Record Recovery') }}</button>
+                @endif
+
+                @can('view-activity')
+                    <a href="{{ route('activity-logs.index', ['loan' => $loan->id]) }}" class="btn btn-outline-secondary" title="{{ __('Change History') }}"><i class="bi bi-clock-history"></i></a>
+                @endcan
+
                 @if ($loan->disbursed_at)
                     <a href="{{ route('loans.print', $loan) }}" target="_blank" class="btn btn-outline-secondary"><i class="bi bi-printer me-1"></i> {{ __('Print') }}</a>
                 @endif
 
-                @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Rejected], true))
+                @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Rejected], true))
                     @can('delete-records')
                         <form method="POST" action="{{ route('loans.destroy', $loan) }}" data-confirm="Delete application {{ $loan->reference }}?">
                             @csrf @method('DELETE')
@@ -73,6 +110,11 @@
         @if ($loan->status === LoanStatus::Rejected)
             <div class="card-footer bg-danger-subtle text-danger-emphasis">
                 <strong>{{ __('Rejected') }}</strong> · {{ __(':name on :date', ['name' => $loan->rejecter?->name, 'date' => $loan->rejected_at?->translatedFormat('d M Y')]) }}: {{ $loan->rejection_reason }}
+            </div>
+        @elseif ($loan->status === LoanStatus::Returned)
+            <div class="card-footer bg-dark-subtle text-dark-emphasis">
+                <strong><i class="bi bi-arrow-return-left me-1"></i>{{ __('Returned for Correction') }}</strong> · {{ __(':name on :date', ['name' => $loan->returner?->name, 'date' => $loan->returned_at?->translatedFormat('d M Y')]) }}: {{ $loan->return_reason }}
+                <div class="small mt-1">{{ __('Edit the application to fix the issue, then resubmit it for approval.') }}</div>
             </div>
         @elseif ($loan->status === LoanStatus::Approved)
             <div class="card-footer bg-info-subtle text-info-emphasis">
@@ -95,7 +137,7 @@
                 <div class="card mb-4 border-start border-4 border-{{ $color }}">
                     <div class="card-body py-3">
                         <div class="stat-label">{{ __($label) }}</div>
-                        <div class="fs-5 fw-semibold">@money($value)</div>
+                        <div class="fs-5 fw-semibold">@money($value, $loan->currency)</div>
                     </div>
                 </div>
             </div>
@@ -110,7 +152,7 @@
                 <ul class="list-group list-group-flush">
                     @foreach ([
                         'Interest' => (float) $loan->interest_rate.'% '.__('p.a.').' · '.$loan->interest_method->label(),
-                        'Repayment' => $loan->term.' × '.$loan->repayment_frequency->label(),
+                        'Repayment' => $loan->term.' × '.($loan->hasFlexibleSchedule() ? __('Flexible schedule') : $loan->repayment_frequency->label()),
                         'Processing fee' => null,
                         'Net disbursed' => null,
                         'Late penalty' => __(':percent% after :days day(s)', ['percent' => (float) $loan->late_penalty_percent, 'days' => $loan->grace_period_days]),
@@ -126,9 +168,9 @@
                             <span class="text-secondary">{{ __($label) }}</span>
                             <span class="text-end">
                                 @if ($label === 'Processing fee')
-                                    @money($loan->processing_fee)
+                                    @money($loan->processing_fee, $loan->currency)
                                 @elseif ($label === 'Net disbursed')
-                                    @money((float) $loan->principal_amount - (float) $loan->processing_fee)
+                                    @money((float) $loan->principal_amount - (float) $loan->processing_fee, $loan->currency)
                                 @else
                                     {{ $value }}
                                 @endif
@@ -142,7 +184,7 @@
                         <div class="progress" style="height: 8px"><div class="progress-bar bg-success" style="width: {{ $loan->progress_percent }}%"></div></div>
                         @if ($isActive && $nextInstallment)
                             <div class="small text-secondary mt-2">
-                                {{ __('Next due:') }} <strong>@money($nextInstallment->balance)</strong> · {{ $nextInstallment->due_date->translatedFormat('d M Y') }}
+                                {{ __('Next due:') }} <strong>@money($nextInstallment->balance, $loan->currency)</strong> · {{ $nextInstallment->due_date->translatedFormat('d M Y') }}
                             </div>
                         @endif
                     </div>
@@ -162,6 +204,14 @@
                             {{ $schedule->isEmpty() ? __('Schedule Preview') : __('Repayment Schedule') }}</button></li>
                         <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-payments" type="button">
                             {{ __('Payments') }} <span class="badge text-bg-secondary">{{ $loan->payments->count() }}</span></button></li>
+                        @if ($loan->restructures->isNotEmpty())
+                            <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-restructures" type="button">
+                                {{ __('Restructures') }} <span class="badge text-bg-secondary">{{ $loan->restructures->count() }}</span></button></li>
+                        @endif
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-guarantors" type="button">
+                            {{ __('Guarantors') }} <span class="badge text-bg-secondary">{{ $loan->guarantors->count() }}</span></button></li>
+                        <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-collateral" type="button">
+                            {{ __('Collateral') }} <span class="badge text-bg-secondary">{{ $loan->collaterals->count() }}</span></button></li>
                     </ul>
                 </div>
                 <div class="tab-content">
@@ -175,24 +225,27 @@
                                     <tbody>
                                         @foreach ($schedule as $installment)
                                             <tr class="{{ $installment->isOverdue() ? 'table-danger' : '' }}">
-                                                <td>{{ $installment->installment_number }}</td>
+                                                <td>
+                                                    {{ $installment->installment_number }}
+                                                    @if ($installment->is_arrears)<span class="badge text-bg-info" title="{{ __('Overdue interest and penalty carried over by a restructure') }}">{{ __('Arrears') }}</span>@endif
+                                                </td>
                                                 <td>
                                                     {{ $installment->due_date->translatedFormat('d M Y') }}
                                                     @if ($installment->isOverdue())
                                                         <span class="badge text-bg-danger">{{ __(':days days late', ['days' => $installment->days_overdue]) }}</span>
                                                     @endif
                                                 </td>
-                                                <td class="text-end">@money($installment->principal_due)</td>
-                                                <td class="text-end">@money($installment->interest_due)</td>
+                                                <td class="text-end">@money($installment->principal_due, $loan->currency)</td>
+                                                <td class="text-end">@money($installment->interest_due, $loan->currency)</td>
                                                 <td class="text-end">
                                                     @if ((float) $installment->penalty_due > 0)
-                                                        <span class="text-danger">@money($installment->penalty_due)</span>
+                                                        <span class="text-danger">@money($installment->penalty_due, $loan->currency)</span>
                                                     @else
                                                         —
                                                     @endif
                                                 </td>
-                                                <td class="text-end fw-semibold">@money($installment->total_due)</td>
-                                                <td class="text-end">@money($installment->total_paid)</td>
+                                                <td class="text-end fw-semibold">@money($installment->total_due, $loan->currency)</td>
+                                                <td class="text-end">@money($installment->total_paid, $loan->currency)</td>
                                                 <td><x-badge :status="$installment->status" /></td>
                                             </tr>
                                         @endforeach
@@ -200,11 +253,11 @@
                                     <tfoot class="table-light fw-semibold">
                                         <tr>
                                             <td colspan="2">{{ __('Total') }}</td>
-                                            <td class="text-end">@money($schedule->sum('principal_due'))</td>
-                                            <td class="text-end">@money($schedule->sum('interest_due'))</td>
-                                            <td class="text-end">@money($schedule->sum('penalty_due'))</td>
-                                            <td class="text-end">@money($schedule->sum('total_due'))</td>
-                                            <td class="text-end">@money($schedule->sum('total_paid'))</td>
+                                            <td class="text-end">@money($schedule->sum('principal_due'), $loan->currency)</td>
+                                            <td class="text-end">@money($schedule->sum('interest_due'), $loan->currency)</td>
+                                            <td class="text-end">@money($schedule->sum('penalty_due'), $loan->currency)</td>
+                                            <td class="text-end">@money($schedule->sum('total_due'), $loan->currency)</td>
+                                            <td class="text-end">@money($schedule->sum('total_paid'), $loan->currency)</td>
                                             <td></td>
                                         </tr>
                                     </tfoot>
@@ -220,10 +273,10 @@
                                             <tr>
                                                 <td>{{ $line->number }}</td>
                                                 <td>{{ $line->dueDate->translatedFormat('d M Y') }}</td>
-                                                <td class="text-end">@money($line->principal)</td>
-                                                <td class="text-end">@money($line->interest)</td>
-                                                <td class="text-end fw-semibold">@money($line->total())</td>
-                                                <td class="text-end">@money($line->balanceAfter)</td>
+                                                <td class="text-end">@money($line->principal, $loan->currency)</td>
+                                                <td class="text-end">@money($line->interest, $loan->currency)</td>
+                                                <td class="text-end fw-semibold">@money($line->total(), $loan->currency)</td>
+                                                <td class="text-end">@money($line->balanceAfter, $loan->currency)</td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -244,10 +297,10 @@
                                             <td><a href="{{ route('payments.show', $payment) }}">{{ $payment->receipt_number }}</a></td>
                                             <td>{{ $payment->payment_date->translatedFormat('d M Y') }}</td>
                                             <td>{{ $payment->method->label() }}</td>
-                                            <td class="text-end">@money($payment->principal_amount)</td>
-                                            <td class="text-end">@money($payment->interest_amount)</td>
-                                            <td class="text-end">@money($payment->penalty_amount)</td>
-                                            <td class="text-end fw-semibold">@money($payment->amount)</td>
+                                            <td class="text-end">@money($payment->principal_amount, $loan->currency)</td>
+                                            <td class="text-end">@money($payment->interest_amount, $loan->currency)</td>
+                                            <td class="text-end">@money($payment->penalty_amount, $loan->currency)</td>
+                                            <td class="text-end fw-semibold">@money($payment->amount, $loan->currency)</td>
                                             <td>{{ $payment->receiver?->name }}</td>
                                         </tr>
                                     @empty
@@ -256,6 +309,20 @@
                                 </tbody>
                             </table>
                         </div>
+                    </div>
+
+                    @if ($loan->restructures->isNotEmpty())
+                        <div class="tab-pane fade" id="tab-restructures">
+                            @include('loans.partials.restructures')
+                        </div>
+                    @endif
+
+                    <div class="tab-pane fade" id="tab-guarantors">
+                        @include('loans.partials.guarantors')
+                    </div>
+
+                    <div class="tab-pane fade" id="tab-collateral">
+                        @include('loans.partials.collateral')
                     </div>
                 </div>
             </div>
@@ -276,19 +343,19 @@
                         <div class="d-flex gap-2 mb-3">
                             @if ($nextInstallment)
                                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('amount').value='{{ number_format($nextInstallment->balance, 2, '.', '') }}'">
-                                    {{ __('Next installment') }} (@money($nextInstallment->balance))
+                                    {{ __('Next installment') }} (@money($nextInstallment->balance, $loan->currency))
                                 </button>
                             @endif
                             @if ($overdueBalance > 0)
                                 <button type="button" class="btn btn-sm btn-outline-danger" onclick="document.getElementById('amount').value='{{ number_format($overdueBalance, 2, '.', '') }}'">
-                                    {{ __('Overdue') }} (@money($overdueBalance))
+                                    {{ __('Overdue') }} (@money($overdueBalance, $loan->currency))
                                 </button>
                             @endif
                             <button type="button" class="btn btn-sm btn-outline-success" onclick="document.getElementById('amount').value='{{ number_format($loan->outstanding_balance, 2, '.', '') }}'">
-                                {{ __('Pay off') }} (@money($loan->outstanding_balance))
+                                {{ __('Pay off') }} (@money($loan->outstanding_balance, $loan->currency))
                             </button>
                         </div>
-                        <x-form.input name="amount" type="number" step="0.01" min="0.01" :max="$loan->outstanding_balance" :label="__('Amount')" :prepend="$appSettings['currency_symbol']" required />
+                        <x-form.input name="amount" type="number" :step="$loan->currency->step()" :min="$loan->currency->step()" :max="$loan->outstanding_balance" :label="__('Amount')" :prepend="$loan->currency->symbol()" required />
                         <div class="row">
                             <x-form.input name="payment_date" type="date" :label="__('Payment date')" :value="today()->toDateString()" :max="today()->toDateString()" required wrapper="col-md-6 mb-3" />
                             <x-form.select name="method" :label="__('Method')" required wrapper="col-md-6 mb-3"
@@ -306,6 +373,10 @@
             </div>
         </div>
 
+        @can('approve-loans')
+            @include('loans.partials.restructure-modal')
+        @endcan
+
         @can('write-off-loans')
             <div class="modal fade" id="writeOffModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
@@ -313,7 +384,7 @@
                         @csrf
                         <div class="modal-header"><h5 class="modal-title">{{ __('Write Off Loan') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                         <div class="modal-body">
-                            <div class="alert alert-danger small">{{ __('Outstanding balance') }}: <strong>@money($loan->outstanding_balance)</strong>. {{ __('It will be written off as a loss. This cannot be undone.') }}</div>
+                            <div class="alert alert-danger small">{{ __('Outstanding balance') }}: <strong>@money($loan->outstanding_balance, $loan->currency)</strong>. {{ __('It will be written off as a loss. This cannot be undone.') }}</div>
                             <x-form.textarea name="reason" :label="__('Reason')" required />
                         </div>
                         <div class="modal-footer">
@@ -326,6 +397,35 @@
         @endcan
     @endif
 
+    @if ($loan->status === LoanStatus::WrittenOff)
+        <div class="modal fade" id="recoveryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <form method="POST" action="{{ route('loans.recoveries.store', $loan) }}" class="modal-content">
+                    @csrf
+                    <div class="modal-header"><h5 class="modal-title">{{ __('Record Recovery') }} · {{ $loan->reference }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                    <div class="modal-body">
+                        <div class="alert alert-light border small">
+                            {{ __('Unrecovered balance') }}: <strong>@money($loan->outstanding_balance, $loan->currency)</strong>.
+                            {{ __('Money collected after a write-off is booked as recovered bad debt income.') }}
+                        </div>
+                        <x-form.input name="amount" type="number" :step="$loan->currency->step()" :min="$loan->currency->step()" :max="$loan->outstanding_balance" :label="__('Amount')" :prepend="$loan->currency->symbol()" required />
+                        <div class="row">
+                            <x-form.input name="payment_date" type="date" :label="__('Payment date')" :value="today()->toDateString()" :max="today()->toDateString()" required wrapper="col-md-6 mb-3" />
+                            <x-form.select name="method" :label="__('Method')" required wrapper="col-md-6 mb-3"
+                                :options="collect($paymentMethods)->mapWithKeys(fn ($m) => [$m->value => $m->label()])" />
+                        </div>
+                        <x-form.input name="transaction_reference" :label="__('Transaction reference')" />
+                        <x-form.textarea name="notes" :label="__('Notes')" rows="2" />
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                        <button type="submit" class="btn btn-success">{{ __('Record Recovery') }}</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    @endif
+
     @if ($loan->status === LoanStatus::Approved)
         @can('disburse-loans')
             <div class="modal fade" id="disburseModal" tabindex="-1" aria-hidden="true">
@@ -335,12 +435,21 @@
                         <div class="modal-header"><h5 class="modal-title">{{ __('Disburse') }} {{ $loan->reference }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
                         <div class="modal-body">
                             <div class="alert alert-light border small">
-                                {{ __('Principal') }} <strong>@money($loan->principal_amount)</strong> − processing fee <strong>@money($loan->processing_fee)</strong>
-                                = net payout <strong>@money((float) $loan->principal_amount - (float) $loan->processing_fee)</strong>
+                                {{ __('Principal') }} <strong>@money($loan->principal_amount, $loan->currency)</strong> − processing fee <strong>@money($loan->processing_fee, $loan->currency)</strong>
+                                = net payout <strong>@money((float) $loan->principal_amount - (float) $loan->processing_fee, $loan->currency)</strong>
                             </div>
                             <div class="row">
                                 <x-form.input name="disbursed_at" type="date" :label="__('Disbursement date')" :value="today()->toDateString()" :max="today()->toDateString()" required wrapper="col-md-6 mb-3" />
-                                <x-form.input name="first_repayment_date" type="date" :label="__('First repayment date')" :value="$loan->repayment_frequency->addPeriods(today(), 1)->toDateString()" required wrapper="col-md-6 mb-3" />
+                                @if ($loan->hasFlexibleSchedule())
+                                    <input type="hidden" name="first_repayment_date" value="{{ $loan->flexible_plan[0]['due_date'] ?? '' }}">
+                                    <div class="col-md-6 mb-3">
+                                        <label class="form-label">{{ __('First repayment date') }}</label>
+                                        <input type="text" class="form-control" value="{{ \Illuminate\Support\Carbon::parse($loan->flexible_plan[0]['due_date'])->translatedFormat('d M Y') }}" disabled>
+                                        <div class="form-text">{{ __('Flexible schedule: due dates were set in the application.') }}</div>
+                                    </div>
+                                @else
+                                    <x-form.input name="first_repayment_date" type="date" :label="__('First repayment date')" :value="$loan->repayment_frequency->addPeriods(today(), 1)->toDateString()" required wrapper="col-md-6 mb-3" />
+                                @endif
                             </div>
                             <x-form.select name="disbursement_method" :label="__('Disbursement method')" required
                                 :options="collect($paymentMethods)->mapWithKeys(fn ($m) => [$m->value => $m->label()])" />
@@ -355,7 +464,27 @@
         @endcan
     @endif
 
-    @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Approved], true))
+    @if ($loan->status === LoanStatus::Pending)
+        @can('approve-loans')
+            <div class="modal fade" id="returnModal" tabindex="-1" aria-hidden="true">
+                <div class="modal-dialog">
+                    <form method="POST" action="{{ route('loans.return', $loan) }}" class="modal-content">
+                        @csrf
+                        <div class="modal-header"><h5 class="modal-title">{{ __('Return for Correction') }}</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+                        <div class="modal-body">
+                            <x-form.textarea name="return_reason" :label="__('What needs to be corrected?')" required :placeholder="__('e.g. Missing income proof; loan amount too high for household income')" />
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">{{ __('Cancel') }}</button>
+                            <button type="submit" class="btn btn-warning">{{ __('Return to Officer') }}</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        @endcan
+    @endif
+
+    @if (in_array($loan->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Approved], true))
         @can('approve-loans')
             <div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
                 <div class="modal-dialog">
@@ -377,9 +506,11 @@
 
     @php
         $reopen = collect([
-            'paymentModal' => ['amount', 'payment_date', 'method'],
+            ($loan->status === LoanStatus::WrittenOff ? 'recoveryModal' : 'paymentModal') => ['amount', 'payment_date', 'method'],
             'disburseModal' => ['disbursed_at', 'first_repayment_date', 'disbursement_method'],
             'rejectModal' => ['rejection_reason'],
+            'returnModal' => ['return_reason'],
+            'restructureModal' => ['term', 'interest_rate', 'first_repayment_date', 'reason'],
             'writeOffModal' => ['reason'],
         ])->search(fn ($fields) => $errors->hasAny($fields));
     @endphp

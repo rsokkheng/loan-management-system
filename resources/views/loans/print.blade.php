@@ -25,7 +25,7 @@
             <table class="table table-sm table-borderless small mb-0">
                 <tr><td class="text-secondary">{{ __('Loan reference') }}</td><td class="text-end fw-semibold">{{ $loan->reference }}</td></tr>
                 <tr><td class="text-secondary">{{ __('Product') }}</td><td class="text-end">{{ $loan->product->name }}</td></tr>
-                <tr><td class="text-secondary">{{ __('Principal') }}</td><td class="text-end">@money($loan->principal_amount)</td></tr>
+                <tr><td class="text-secondary">{{ __('Principal') }}</td><td class="text-end">@money($loan->principal_amount, $loan->currency)</td></tr>
                 <tr><td class="text-secondary">{{ __('Interest') }}</td><td class="text-end">{{ (float) $loan->interest_rate }}% p.a. ({{ $loan->interest_method->label() }})</td></tr>
                 <tr><td class="text-secondary">{{ __('Term') }}</td><td class="text-end">{{ $loan->term }} × {{ $loan->repayment_frequency->label() }}</td></tr>
                 <tr><td class="text-secondary">{{ __('Disbursed') }}</td><td class="text-end">{{ $loan->disbursed_at?->translatedFormat('d M Y') }}</td></tr>
@@ -43,11 +43,11 @@
                 <tr>
                     <td>{{ $installment->installment_number }}</td>
                     <td>{{ $installment->due_date->translatedFormat('d M Y') }}</td>
-                    <td class="text-end">@money($installment->principal_due)</td>
-                    <td class="text-end">@money($installment->interest_due)</td>
-                    <td class="text-end fw-semibold">@money((float) $installment->principal_due + (float) $installment->interest_due)</td>
-                    <td class="text-end">@money($installment->balance_after)</td>
-                    <td class="text-end">@money($installment->total_paid)</td>
+                    <td class="text-end">@money($installment->principal_due, $loan->currency)</td>
+                    <td class="text-end">@money($installment->interest_due, $loan->currency)</td>
+                    <td class="text-end fw-semibold">@money((float) $installment->principal_due + (float) $installment->interest_due, $loan->currency)</td>
+                    <td class="text-end">@money($installment->balance_after, $loan->currency)</td>
+                    <td class="text-end">@money($installment->total_paid, $loan->currency)</td>
                     <td>{{ $installment->status->label() }}</td>
                 </tr>
             @endforeach
@@ -55,11 +55,11 @@
         <tfoot class="table-light fw-semibold">
             <tr>
                 <td colspan="2">{{ __('Total') }}</td>
-                <td class="text-end">@money($loan->installments->sum('principal_due'))</td>
-                <td class="text-end">@money($loan->installments->sum('interest_due'))</td>
-                <td class="text-end">@money($loan->total_payable)</td>
+                <td class="text-end">@money($loan->installments->sum('principal_due'), $loan->currency)</td>
+                <td class="text-end">@money($loan->installments->sum('interest_due'), $loan->currency)</td>
+                <td class="text-end">@money($loan->total_payable, $loan->currency)</td>
                 <td></td>
-                <td class="text-end">@money($loan->amount_paid)</td>
+                <td class="text-end">@money($loan->amount_paid, $loan->currency)</td>
                 <td></td>
             </tr>
         </tfoot>

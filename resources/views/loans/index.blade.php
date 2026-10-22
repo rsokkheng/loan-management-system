@@ -1,6 +1,6 @@
 <x-layouts.admin :title="__('Loans')" :breadcrumbs="['Loans']">
     @php
-        $tabs = ['' => 'All', 'pending' => 'Pending', 'approved' => 'Approved', 'active' => 'Active', 'overdue' => 'Overdue', 'closed' => 'Closed', 'rejected' => 'Rejected', 'written_off' => 'Written Off'];
+        $tabs = ['' => 'All', 'pending' => 'Pending', 'returned' => 'Returned', 'approved' => 'Approved', 'active' => 'Active', 'overdue' => 'Overdue', 'closed' => 'Closed', 'rejected' => 'Rejected', 'written_off' => 'Written Off'];
     @endphp
 
     <ul class="nav nav-pills mb-3 flex-nowrap overflow-auto">
@@ -48,10 +48,10 @@
                                     {{ $loan->product->name }}
                                     @if (! $currentBranch)<div class="small text-secondary"><i class="bi bi-building"></i> {{ $loan->branch?->name }}</div>@endif
                                 </td>
-                                <td class="text-end">@money($loan->principal_amount)</td>
+                                <td class="text-end">@money($loan->principal_amount, $loan->currency)</td>
                                 <td class="text-end fw-semibold">
                                     @if (in_array($loan->status, [\App\Enums\LoanStatus::Active, \App\Enums\LoanStatus::WrittenOff], true))
-                                        @money($loan->outstanding_balance)
+                                        @money($loan->outstanding_balance, $loan->currency)
                                     @else
                                         <span class="text-secondary">—</span>
                                     @endif

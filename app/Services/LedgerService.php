@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\Currency;
 use App\Enums\JournalType;
 use App\Enums\LoanStatus;
 use App\Enums\PaymentMethod;
@@ -34,7 +35,10 @@ class LedgerService
         ?Model $source = null,
         ?User $user = null,
         ?JournalEntry $reversalOf = null,
+        ?Currency $currency = null,
     ): JournalEntry {
+        $currency ??= app(CurrencyContext::class)->default();
+
         $lines = collect($lines)
             ->map(fn (array $line) => [
                 'account_id' => $line['account'] instanceof Account ? $line['account']->id : (int) $line['account'],
@@ -47,9 +51,10 @@ class LedgerService
 
         $this->ensureBalanced($lines->all());
 
-        return DB::transaction(function () use ($type, $date, $description, $lines, $branchId, $source, $user, $reversalOf) {
+        return DB::transaction(function () use ($type, $date, $description, $lines, $branchId, $source, $user, $reversalOf, $currency) {
             $entry = JournalEntry::query()->create([
                 'branch_id' => $branchId,
+                'currency' => $currency,
                 'entry_date' => $date,
                 'type' => $type,
                 'description' => $description,
@@ -86,11 +91,12 @@ class LedgerService
             $loan->branch_id,
             $loan,
             $loan->disburser,
+            currency: $loan->currency,
         );
     }
 
     /**
-     * Dr Cash / Cr Loans Receivable, Interest Income and Penalty Income.
+     * Dr Cash / Cr Loans Receivable, Interest Income, Penalty Income and any early settlement fee.
      */
     public function recordRepayment(Payment $payment): JournalEntry
     {
@@ -105,10 +111,35 @@ class LedgerService
                 ['account' => Account::system('loan_portfolio'), 'credit' => $payment->principal_amount],
                 ['account' => Account::system('interest_income'), 'credit' => $payment->interest_amount],
                 ['account' => Account::system('penalty_income'), 'credit' => $payment->penalty_amount],
+                ['account' => Account::system('fee_income'), 'credit' => $payment->settlement_fee, 'memo' => __('Early settlement fee')],
             ],
             $payment->branch_id,
             $payment,
             $payment->receiver,
+            currency: $payment->loan->currency,
+        );
+    }
+
+    /**
+     * Dr Cash / Cr Bad Debt Recovered for money collected after a write-off
+     * (the loan already left the portfolio, so the recovery is income).
+     */
+    public function recordRecovery(Payment $payment): JournalEntry
+    {
+        $payment->loadMissing(['loan', 'receiver']);
+
+        return $this->post(
+            JournalType::Recovery,
+            $payment->payment_date,
+            __('Recovery :receipt on written-off loan :reference', ['receipt' => $payment->receipt_number, 'reference' => $payment->loan->reference]),
+            [
+                ['account' => $this->cashAccountFor($payment->method), 'debit' => $payment->amount],
+                ['account' => Account::system('recovery_income'), 'credit' => $payment->amount],
+            ],
+            $payment->branch_id,
+            $payment,
+            $payment->receiver,
+            currency: $payment->loan->currency,
         );
     }
 
@@ -134,6 +165,7 @@ class LedgerService
             ],
             $loan->branch_id,
             $loan,
+            currency: $loan->currency,
         );
     }
 
@@ -164,6 +196,7 @@ class LedgerService
             $entry,
             $user,
             $entry,
+            $entry->currency,
         );
     }
 
@@ -190,7 +223,7 @@ class LedgerService
             ->with(['loan' => fn ($query) => $query->withoutGlobalScopes(), 'receiver'])
             ->orderBy('id')
             ->each(function (Payment $payment) use (&$created): void {
-                $this->recordRepayment($payment);
+                $payment->is_recovery ? $this->recordRecovery($payment) : $this->recordRepayment($payment);
                 $created++;
             });
 

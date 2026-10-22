@@ -16,7 +16,7 @@
                                 <td class="fw-semibold">{{ $loan->reference }}</td>
                                 <td>{{ $loan->borrower->full_name }}</td>
                                 <td>{{ $loan->borrower->phone }}</td>
-                                <td class="text-end fw-semibold">@money($loan->outstanding_balance)</td>
+                                <td class="text-end fw-semibold">@money($loan->outstanding_balance, $loan->currency)</td>
                                 <td class="text-end">
                                     <a href="{{ route('loans.show', $loan) }}#receive" class="btn btn-sm btn-success" data-open-payment><i class="bi bi-cash-coin me-1"></i> {{ __('Receive') }}</a>
                                 </td>

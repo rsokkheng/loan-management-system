@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\Currency;
 use App\Enums\LoanStatus;
 use App\Models\Borrower;
 use App\Models\Branch;
@@ -9,6 +10,8 @@ use App\Models\Loan;
 use App\Models\LoanInstallment;
 use App\Models\Payment;
 use App\Services\BranchContext;
+use App\Services\CurrencyContext;
+use App\Services\PortfolioRiskService;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -17,15 +20,17 @@ use Illuminate\View\View;
 
 class DashboardController extends Controller
 {
-    public function __invoke(): View
+    public function __invoke(PortfolioRiskService $risk, CurrencyContext $currencies): View
     {
-        $activeLoans = Loan::query()->withStatus(LoanStatus::Active);
+        $currency = $currencies->current();
+        $activeLoans = Loan::query()->inCurrency($currency)->withStatus(LoanStatus::Active);
 
         $outstanding = (float) (clone $activeLoans)->toBase()
             ->selectRaw('COALESCE(SUM(total_payable + total_penalty - amount_paid), 0) as aggregate')
             ->value('aggregate');
 
         $overdueInstallments = LoanInstallment::query()
+            ->inCurrency($currency)
             ->overdue()
             ->whereHas('loan', fn (Builder $query) => $query->where('status', LoanStatus::Active));
 
@@ -33,30 +38,29 @@ class DashboardController extends Controller
             ->selectRaw('COALESCE(SUM(principal_due + interest_due + penalty_due - principal_paid - interest_paid - penalty_paid), 0) as aggregate')
             ->value('aggregate');
 
-        $atRiskPrincipal = (float) Loan::query()->overdue()->sum('principal_amount');
-        $activePrincipal = (float) (clone $activeLoans)->sum('principal_amount');
-
         $stats = [
             'borrowers' => Borrower::query()->count(),
             'active_loans' => (clone $activeLoans)->count(),
-            'pending_loans' => Loan::query()->withStatus(LoanStatus::Pending, LoanStatus::Approved)->count(),
+            'pending_loans' => Loan::query()->inCurrency($currency)->withStatus(LoanStatus::Pending, LoanStatus::Approved)->count(),
             'outstanding' => $outstanding,
-            'total_disbursed' => (float) Loan::query()->whereNotNull('disbursed_at')->sum('principal_amount'),
-            'collected_this_month' => (float) Payment::query()->whereBetween('payment_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'),
+            'total_disbursed' => (float) Loan::query()->inCurrency($currency)->whereNotNull('disbursed_at')->sum('principal_amount'),
+            'collected_this_month' => (float) Payment::query()->inCurrency($currency)->whereBetween('payment_date', [now()->startOfMonth(), now()->endOfMonth()])->sum('amount'),
             'overdue_amount' => $overdueAmount,
-            'overdue_loans' => Loan::query()->overdue()->count(),
-            'portfolio_at_risk' => $activePrincipal > 0 ? round($atRiskPrincipal / $activePrincipal * 100, 1) : 0,
+            'overdue_loans' => Loan::query()->inCurrency($currency)->overdue()->count(),
+            'portfolio_at_risk' => round($risk->summarize($risk->loans($currency))['par'][30]['percent'], 1),
         ];
 
         return view('dashboard', [
             'stats' => $stats,
-            'branchSummary' => $this->branchSummary(),
-            'chart' => $this->monthlyTrend(),
+            'branchSummary' => $this->branchSummary($currency),
+            'chart' => $this->monthlyTrend($currency),
             'statusBreakdown' => Loan::query()
+                ->inCurrency($currency)
                 ->selectRaw('status, COUNT(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status'),
             'upcomingInstallments' => LoanInstallment::query()
+                ->inCurrency($currency)
                 ->with('loan.borrower')
                 ->where('status', '!=', 'paid')
                 ->whereBetween('due_date', [today(), today()->addDays(7)])
@@ -70,6 +74,7 @@ class DashboardController extends Controller
                 ->limit(8)
                 ->get(),
             'recentPayments' => Payment::query()
+                ->inCurrency($currency)
                 ->with('loan.borrower')
                 ->latest('id')
                 ->limit(8)
@@ -82,19 +87,19 @@ class DashboardController extends Controller
      *
      * @return Collection<int, Branch>|null
      */
-    private function branchSummary(): ?Collection
+    private function branchSummary(Currency $currency): ?Collection
     {
         if (app(BranchContext::class)->id() !== null) {
             return null;
         }
 
-        $active = fn ($query) => $query->withoutGlobalScopes()->where('status', LoanStatus::Active);
+        $active = fn ($query) => $query->withoutGlobalScopes()->where('currency', $currency)->where('status', LoanStatus::Active);
 
         return Branch::query()
             ->active()
             ->withCount(['loans as active_loans' => $active])
             ->withSum(['loans as outstanding' => $active], DB::raw('total_payable + total_penalty - amount_paid'))
-            ->withSum(['loans as disbursed' => fn ($query) => $query->withoutGlobalScopes()->whereNotNull('disbursed_at')], 'principal_amount')
+            ->withSum(['loans as disbursed' => fn ($query) => $query->withoutGlobalScopes()->where('currency', $currency)->whereNotNull('disbursed_at')], 'principal_amount')
             ->orderBy('name')
             ->get();
     }
@@ -104,17 +109,19 @@ class DashboardController extends Controller
      *
      * @return array{labels: list<string>, disbursed: list<float>, collected: list<float>}
      */
-    private function monthlyTrend(): array
+    private function monthlyTrend(Currency $currency): array
     {
         $start = now()->subMonths(11)->startOfMonth();
 
         $disbursed = Loan::query()
+            ->inCurrency($currency)
             ->whereDate('disbursed_at', '>=', $start)
             ->get(['disbursed_at', 'principal_amount'])
             ->groupBy(fn (Loan $loan) => $loan->disbursed_at->format('Y-m'))
             ->map(fn ($loans) => round((float) $loans->sum('principal_amount'), 2));
 
         $collected = Payment::query()
+            ->inCurrency($currency)
             ->whereDate('payment_date', '>=', $start)
             ->get(['payment_date', 'amount'])
             ->groupBy(fn (Payment $payment) => $payment->payment_date->format('Y-m'))

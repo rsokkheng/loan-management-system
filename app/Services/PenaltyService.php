@@ -36,7 +36,7 @@ class PenaltyService
                         - (float) $installment->principal_paid - (float) $installment->interest_paid,
                         2,
                     );
-                    $penalty = round($overdueAmount * (float) $installment->loan->late_penalty_percent / 100, 2);
+                    $penalty = $installment->loan->currency->round($overdueAmount * (float) $installment->loan->late_penalty_percent / 100);
 
                     DB::transaction(function () use ($installment, $penalty): void {
                         $installment->forceFill([

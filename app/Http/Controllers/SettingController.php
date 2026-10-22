@@ -17,9 +17,11 @@ class SettingController extends Controller
 
     public function update(SettingRequest $request): RedirectResponse
     {
+        $before = Setting::allValues();
+
         Setting::setMany($request->validated());
 
-        ActivityLog::record('updated', 'System settings updated');
+        ActivityLog::record('updated', 'System settings updated', changes: ActivityLog::diff($before, $request->validated()));
 
         return back()->with('success', __('Settings saved.'));
     }

@@ -2,9 +2,11 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\ScheduleType;
 use App\Models\LoanProduct;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Support\Carbon;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
 
@@ -26,7 +28,29 @@ class LoanRequest extends FormRequest
             'application_date' => ['required', 'date', 'before_or_equal:today'],
             'purpose' => ['nullable', 'string', 'max:255'],
             'notes' => ['nullable', 'string', 'max:2000'],
+            'plan' => ['nullable', 'array', 'max:1000'],
+            'plan.*.due_date' => ['required', 'date'],
+            'plan.*.principal' => ['required', 'numeric', 'min:0'],
         ];
+    }
+
+    /**
+     * Flexible schedules take their term from the number of rows entered;
+     * rows left completely empty in the form are ignored.
+     */
+    protected function prepareForValidation(): void
+    {
+        $isFlexible = LoanProduct::query()->find($this->integer('loan_product_id'))?->schedule_type === ScheduleType::Flexible;
+
+        $plan = $isFlexible ? collect($this->input('plan', []))
+            ->filter(fn ($row) => is_array($row) && (filled($row['due_date'] ?? null) || filled($row['principal'] ?? null)))
+            ->values() : collect();
+
+        $this->merge(['plan' => $plan->all()]);
+
+        if ($isFlexible) {
+            $this->merge(['term' => max(1, $plan->count())]);
+        }
     }
 
     /**
@@ -54,10 +78,51 @@ class LoanRequest extends FormRequest
                     ]));
                 }
 
+                if ($product->schedule_type === ScheduleType::Flexible) {
+                    $this->validateFlexiblePlan($validator, $product, $amount);
+                }
+
                 if ($term < $product->min_term || $term > $product->max_term) {
                     $validator->errors()->add('term', __('The term must be between :min and :max installments for :product.', ['min' => $product->min_term, 'max' => $product->max_term, 'product' => $product->name]));
                 }
             },
         ];
+    }
+
+    /**
+     * Due dates must run forward from the application date and the principal must add up to the loan amount.
+     */
+    private function validateFlexiblePlan(Validator $validator, LoanProduct $product, float $amount): void
+    {
+        $plan = collect($this->input('plan', []));
+
+        if ($plan->isEmpty()) {
+            $validator->errors()->add('plan', __('Enter at least one due date for a flexible schedule.'));
+
+            return;
+        }
+
+        $previous = Carbon::parse($this->input('application_date'));
+
+        foreach ($plan as $index => $row) {
+            $dueDate = Carbon::parse($row['due_date']);
+
+            if ($dueDate->lte($previous)) {
+                $validator->errors()->add("plan.{$index}.due_date", __('Each due date must be after the previous one and after the application date.'));
+
+                return;
+            }
+
+            $previous = $dueDate;
+        }
+
+        $total = $product->currency->round($plan->sum(fn (array $row) => (float) $row['principal']));
+
+        if ($total !== $product->currency->round($amount)) {
+            $validator->errors()->add('plan', __('The principal in the schedule adds up to :total but the loan amount is :amount.', [
+                'total' => $product->currency->format($total),
+                'amount' => $product->currency->format($amount),
+            ]));
+        }
     }
 }

@@ -11,7 +11,8 @@
         <div class="card-body">
             <div class="row">
                 <x-form.input name="entry_date" type="date" :label="__('Date')" :value="today()->toDateString()" :max="today()->toDateString()" required wrapper="col-md-4 mb-3" />
-                <x-form.input name="amount" type="number" step="0.01" min="0.01" :label="__('Amount')" :prepend="$appSettings['currency_symbol']" required wrapper="col-md-4 mb-3" />
+                <x-form.input name="amount" type="number" step="0.01" min="0.01" :label="__('Amount')" :prepend="$reportingCurrency->symbol()" required wrapper="col-md-4 mb-3" />
+                <input type="hidden" name="currency" value="{{ $reportingCurrency->value }}">
                 @if ($canSwitchBranch)
                     <x-form.select name="branch_id" :label="__('Branch')" :value="$currentBranch?->id" :options="$branches" required :placeholder="__('Select…')" wrapper="col-md-4 mb-3" />
                 @endif

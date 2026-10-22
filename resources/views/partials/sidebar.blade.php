@@ -20,6 +20,8 @@
             ['label' => 'Collections', 'route' => 'reports.collections', 'active' => 'reports.collections'],
             ['label' => 'Disbursements', 'route' => 'reports.disbursements', 'active' => 'reports.disbursements'],
             ['label' => 'Arrears / Aging', 'route' => 'reports.arrears', 'active' => 'reports.arrears'],
+            ['label' => 'Portfolio at Risk', 'route' => 'reports.portfolio-at-risk', 'active' => 'reports.portfolio-at-risk'],
+            ['label' => 'Branch Profitability', 'route' => 'reports.branch-profitability', 'active' => 'reports.branch-profitability'],
             ['label' => 'Portfolio', 'route' => 'reports.portfolio', 'active' => 'reports.portfolio'],
         ]],
         ['header' => 'Accounting', 'can' => 'manage-accounting'],

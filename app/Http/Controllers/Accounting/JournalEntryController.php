@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Accounting;
 
+use App\Enums\Currency;
 use App\Enums\JournalType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\JournalEntryRequest;
@@ -9,6 +10,7 @@ use App\Models\Account;
 use App\Models\Branch;
 use App\Models\JournalEntry;
 use App\Services\BranchContext;
+use App\Services\CurrencyContext;
 use App\Services\LedgerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -24,6 +26,7 @@ class JournalEntryController extends Controller
         $entries = JournalEntry::query()
             ->with(['branch', 'creator'])
             ->withSum('lines', 'debit')
+            ->where('currency', app(CurrencyContext::class)->current())
             ->when(JournalType::tryFrom((string) $request->input('type')), fn ($query, $type) => $query->where('type', $type))
             ->when($search, fn ($query) => $query->where(fn ($query) => $query
                 ->where('reference', 'like', "%{$search}%")
@@ -60,6 +63,7 @@ class JournalEntryController extends Controller
             ])->all(),
             branchId: $context->forNewRecord($request->integer('branch_id') ?: null),
             user: $request->user(),
+            currency: Currency::tryFrom((string) $request->validated('currency')) ?? app(CurrencyContext::class)->current(),
         );
 
         return redirect()->route('accounting.journal.show', $entry)->with('success', __('Journal entry :reference posted.', ['reference' => $entry->reference]));

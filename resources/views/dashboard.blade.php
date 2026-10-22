@@ -27,7 +27,7 @@
             ['Borrowers', $stats['borrowers'], 'people', 'info', route('borrowers.index')],
             ['Active Loans', $stats['active_loans'], 'graph-up-arrow', 'primary', route('loans.index', ['status' => 'active'])],
             ['Awaiting Approval / Disbursement', $stats['pending_loans'], 'hourglass-split', 'warning', route('loans.index', ['status' => 'pending'])],
-            ['Portfolio at Risk', $stats['portfolio_at_risk'].'%', 'shield-exclamation', 'danger', route('loans.index', ['status' => 'overdue'])],
+            ['PAR 30', $stats['portfolio_at_risk'].'%', 'shield-exclamation', 'danger', auth()->user()->can('view-reports') ? route('reports.portfolio-at-risk') : route('loans.index', ['status' => 'overdue'])],
         ] as [$label, $value, $icon, $color, $link])
             <div class="col-md-3 col-sm-6">
                 <a href="{{ $link }}" class="text-decoration-none text-reset">
@@ -203,8 +203,7 @@
     @push('scripts')
         <script>
             document.addEventListener('DOMContentLoaded', () => {
-                const currency = @js($appSettings['currency_symbol']);
-                const money = (v) => currency + Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 });
+                const money = (v) => @js($reportingCurrency->format(0)).replace('0', Number(v).toLocaleString(undefined, { maximumFractionDigits: 0 }));
                 const trend = @js($chart);
 
                 new Chart(document.getElementById('trendChart'), {

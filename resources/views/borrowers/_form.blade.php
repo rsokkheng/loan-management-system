@@ -34,7 +34,7 @@
                 <div class="row">
                     <x-form.input name="occupation" :label="__('Occupation')" :value="$borrower->occupation" wrapper="col-md-4 mb-3" />
                     <x-form.input name="employer" :label="__('Employer / Business')" :value="$borrower->employer" wrapper="col-md-4 mb-3" />
-                    <x-form.input name="monthly_income" type="number" step="0.01" min="0" :label="__('Monthly income')" :prepend="$appSettings['currency_symbol']"
+                    <x-form.input name="monthly_income" type="number" step="0.01" min="0" :label="__('Monthly income')" :prepend="app(\App\Services\CurrencyContext::class)->default()->symbol()"
                         :value="$borrower->monthly_income" wrapper="col-md-4 mb-3" />
                 </div>
             </div>

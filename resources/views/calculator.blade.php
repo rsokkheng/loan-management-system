@@ -11,12 +11,16 @@
                                 <option value="">{{ __('Custom terms') }}</option>
                                 @foreach ($products as $product)
                                     <option data-rate="{{ (float) $product->interest_rate }}" data-method="{{ $product->interest_method->value }}"
-                                        data-frequency="{{ $product->repayment_frequency->value }}" data-fee="{{ (float) $product->processing_fee_percent }}">{{ $product->name }}</option>
+                                        data-frequency="{{ $product->repayment_frequency->value }}" data-fee="{{ (float) $product->processing_fee_percent }}" data-currency="{{ $product->currency->value }}">{{ $product->name }}</option>
                                 @endforeach
                             </select>
                         </div>
                     @endif
-                    <x-form.input name="principal" type="number" step="0.01" min="1" :label="__('Loan amount')" :prepend="$appSettings['currency_symbol']" :value="request('principal', 5000)" required />
+                    <div class="row">
+                        <x-form.select name="currency" :label="__('Currency')" :value="$currency" wrapper="col-4 mb-3"
+                            :options="collect($currencies)->mapWithKeys(fn ($c) => [$c->value => $c->value])" />
+                        <x-form.input name="principal" type="number" step="0.01" min="1" :label="__('Loan amount')" :prepend="$currency->symbol()" :value="request('principal', 5000)" required wrapper="col-8 mb-3" />
+                    </div>
                     <x-form.input name="interest_rate" type="number" step="0.0001" min="0" :label="__('Annual interest rate')" append="%" :value="request('interest_rate', 18)" required />
                     <x-form.select name="interest_method" :label="__('Interest method')" :value="request('interest_method', 'reducing_balance')"
                         :options="collect($interestMethods)->mapWithKeys(fn ($m) => [$m->value => $m->label()])" />
@@ -49,7 +53,7 @@
                             <div class="card mb-4 border-start border-4 border-{{ $color }}">
                                 <div class="card-body py-3">
                                     <div class="stat-label">{{ __($label) }}</div>
-                                    <div class="fs-5 fw-semibold">@money($value)</div>
+                                    <div class="fs-5 fw-semibold">@money($value, $currency)</div>
                                 </div>
                             </div>
                         </div>
@@ -69,10 +73,10 @@
                                         <tr>
                                             <td>{{ $line->number }}</td>
                                             <td>{{ $line->dueDate->translatedFormat('d M Y') }}</td>
-                                            <td class="text-end">@money($line->principal)</td>
-                                            <td class="text-end">@money($line->interest)</td>
-                                            <td class="text-end fw-semibold">@money($line->total())</td>
-                                            <td class="text-end">@money($line->balanceAfter)</td>
+                                            <td class="text-end">@money($line->principal, $currency)</td>
+                                            <td class="text-end">@money($line->interest, $currency)</td>
+                                            <td class="text-end fw-semibold">@money($line->total(), $currency)</td>
+                                            <td class="text-end">@money($line->balanceAfter, $currency)</td>
                                         </tr>
                                     @endforeach
                                 </tbody>

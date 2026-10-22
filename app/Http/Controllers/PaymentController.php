@@ -72,6 +72,24 @@ class PaymentController extends Controller
         return redirect()->route('payments.show', $payment)->with('success', __('Payment recorded. Receipt :receipt.', ['receipt' => $payment->receipt_number]));
     }
 
+    /**
+     * Record money collected on a loan after it was written off.
+     */
+    public function storeRecovery(PaymentRequest $request, Loan $loan, RepaymentService $repayments): RedirectResponse
+    {
+        $payment = $repayments->recordRecovery(
+            loan: $loan,
+            amount: (float) $request->validated('amount'),
+            paymentDate: Carbon::parse($request->validated('payment_date')),
+            method: PaymentMethod::from($request->validated('method')),
+            receiver: $request->user(),
+            transactionReference: $request->validated('transaction_reference'),
+            notes: $request->validated('notes'),
+        );
+
+        return redirect()->route('payments.show', $payment)->with('success', __('Recovery recorded. Receipt :receipt.', ['receipt' => $payment->receipt_number]));
+    }
+
     public function show(Payment $payment): View
     {
         $payment->load(['loan.borrower', 'receiver']);

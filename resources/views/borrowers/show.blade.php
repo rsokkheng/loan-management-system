@@ -14,6 +14,9 @@
                             <a href="{{ route('loans.create', ['borrower' => $borrower->id]) }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i> {{ __('New Loan') }}</a>
                         @endunless
                         <a href="{{ route('borrowers.edit', $borrower) }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-pencil me-1"></i> {{ __('Edit') }}</a>
+                        @can('view-activity')
+                            <a href="{{ route('activity-logs.index', ['borrower' => $borrower->id]) }}" class="btn btn-outline-secondary btn-sm" title="{{ __('Change History') }}"><i class="bi bi-clock-history"></i></a>
+                        @endcan
                         @can('delete-records')
                             <form method="POST" action="{{ route('borrowers.destroy', $borrower) }}" data-confirm="{{ __('Delete this borrower? This cannot be undone.') }}">
                                 @csrf @method('DELETE')
@@ -41,7 +44,7 @@
                     @endforeach
                     <li class="list-group-item d-flex justify-content-between">
                         <span class="text-secondary">{{ __('Monthly income') }}</span>
-                        <span>@money($borrower->monthly_income)</span>
+                        <span>@money($borrower->monthly_income, app(\App\Services\CurrencyContext::class)->default())</span>
                     </li>
                     <li class="list-group-item d-flex justify-content-between">
                         <span class="text-secondary">{{ __('Registered') }}</span>
@@ -68,13 +71,13 @@
                 <div class="col-md-4">
                     <div class="info-box">
                         <span class="info-box-icon text-bg-success"><i class="bi bi-cash-stack"></i></span>
-                        <div class="info-box-content"><span class="info-box-text">{{ __('Total Repaid') }}</span><span class="info-box-number">@money($borrower->loans->sum('amount_paid'))</span></div>
+                        <div class="info-box-content"><span class="info-box-text">{{ __('Total Repaid') }}</span><span class="info-box-number">{{ $borrower->loans->groupBy(fn ($loan) => $loan->currency->value)->map(fn ($loans) => $loans->first()->currency->format($loans->sum('amount_paid')))->join(' + ') ?: \App\Enums\Currency::display(0) }}</span></div>
                     </div>
                 </div>
                 <div class="col-md-4">
                     <div class="info-box">
                         <span class="info-box-icon text-bg-warning"><i class="bi bi-wallet2"></i></span>
-                        <div class="info-box-content"><span class="info-box-text">{{ __('Outstanding') }}</span><span class="info-box-number">@money($active->sum('outstanding_balance'))</span></div>
+                        <div class="info-box-content"><span class="info-box-text">{{ __('Outstanding') }}</span><span class="info-box-number">{{ $active->groupBy(fn ($loan) => $loan->currency->value)->map(fn ($loans) => $loans->first()->currency->format($loans->sum('outstanding_balance')))->join(' + ') ?: \App\Enums\Currency::display(0) }}</span></div>
                     </div>
                 </div>
             </div>
@@ -90,8 +93,8 @@
                                     <tr>
                                         <td><a href="{{ route('loans.show', $loan) }}">{{ $loan->reference }}</a></td>
                                         <td>{{ $loan->product->name }}</td>
-                                        <td class="text-end">@money($loan->principal_amount)</td>
-                                        <td class="text-end">@money($loan->status === \App\Enums\LoanStatus::Active ? $loan->outstanding_balance : 0)</td>
+                                        <td class="text-end">@money($loan->principal_amount, $loan->currency)</td>
+                                        <td class="text-end">@money($loan->status === \App\Enums\LoanStatus::Active ? $loan->outstanding_balance : 0, $loan->currency)</td>
                                         <td>{{ $loan->application_date->translatedFormat('d M Y') }}</td>
                                         <td><x-badge :status="$loan->status" /></td>
                                     </tr>
@@ -103,6 +106,8 @@
                     </div>
                 </div>
             </div>
+
+            @include('borrowers.partials.family-members')
 
             <div class="card mb-4">
                 <div class="card-header"><h3 class="card-title">{{ __('KYC Documents') }}</h3></div>

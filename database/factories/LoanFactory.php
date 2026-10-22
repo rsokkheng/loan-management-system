@@ -28,10 +28,12 @@ class LoanFactory extends Factory
         return [
             'borrower_id' => Borrower::factory(),
             'loan_product_id' => $product,
+            'currency' => fn (array $attributes) => LoanProduct::find($attributes['loan_product_id'])->currency,
             'principal_amount' => 1200,
             'interest_rate' => 24,
             'interest_method' => fn (array $attributes) => LoanProduct::find($attributes['loan_product_id'])->interest_method,
             'repayment_frequency' => fn (array $attributes) => LoanProduct::find($attributes['loan_product_id'])->repayment_frequency,
+            'schedule_type' => fn (array $attributes) => LoanProduct::find($attributes['loan_product_id'])->schedule_type,
             'term' => 12,
             'processing_fee' => 12,
             'late_penalty_percent' => 5,

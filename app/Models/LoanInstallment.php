@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\InstallmentStatus;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Scope;
@@ -12,7 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'loan_id', 'installment_number', 'due_date', 'principal_due', 'interest_due', 'penalty_due',
-    'principal_paid', 'interest_paid', 'penalty_paid', 'balance_after', 'status', 'paid_at',
+    'principal_paid', 'interest_paid', 'penalty_paid', 'balance_after', 'is_arrears', 'status', 'paid_at',
 ])]
 class LoanInstallment extends Model
 {
@@ -33,6 +34,7 @@ class LoanInstallment extends Model
             'interest_paid' => 'decimal:2',
             'penalty_paid' => 'decimal:2',
             'balance_after' => 'decimal:2',
+            'is_arrears' => 'boolean',
             'status' => InstallmentStatus::class,
             'penalty_applied_at' => 'datetime',
             'paid_at' => 'date',
@@ -98,6 +100,17 @@ class LoanInstallment extends Model
     {
         $query->where('status', '!=', InstallmentStatus::Paid)
             ->whereDate('due_date', '<', today());
+    }
+
+    /**
+     * Records belonging to loans in the given currency.
+     *
+     * @param  Builder<LoanInstallment>  $query
+     */
+    #[Scope]
+    protected function inCurrency(Builder $query, Currency $currency): void
+    {
+        $query->whereHas('loan', fn (Builder $query) => $query->where('currency', $currency));
     }
 
     /**

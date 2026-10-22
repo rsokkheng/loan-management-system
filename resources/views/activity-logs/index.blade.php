@@ -8,6 +8,12 @@
                         <option value="{{ $action }}" @selected(request('action') === $action)>{{ __(str($action)->headline()->value()) }}</option>
                     @endforeach
                 </select>
+                @foreach (['loan', 'borrower'] as $filter)
+                    @if (request($filter))
+                        <input type="hidden" name="{{ $filter }}" value="{{ request($filter) }}">
+                        <a href="{{ route('activity-logs.index') }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-lg me-1"></i>{{ __('Showing one record only') }}</a>
+                    @endif
+                @endforeach
             </form>
         </div>
         <div class="card-body p-0">
@@ -28,6 +34,23 @@
                                                 {{ __(str($key)->headline()->value()) }}: {{ is_scalar($value) ? $value : json_encode($value) }}@unless ($loop->last) · @endunless
                                             @endforeach
                                         </div>
+                                    @endif
+                                    @if ($log->changes)
+                                        <details class="small mt-1">
+                                            <summary class="text-primary">{{ __(':count field(s) changed', ['count' => count($log->changes)]) }}</summary>
+                                            <table class="table table-sm table-borderless mb-0 mt-1">
+                                                <thead><tr class="text-secondary"><th>{{ __('Field') }}</th><th>{{ __('Before') }}</th><th>{{ __('After') }}</th></tr></thead>
+                                                <tbody>
+                                                    @foreach ($log->changes as $field => $change)
+                                                        <tr>
+                                                            <td class="text-secondary">{{ __(str($field)->headline()->value()) }}</td>
+                                                            <td><del class="text-danger">{{ is_scalar($change['old'] ?? null) ? $change['old'] : (blank($change['old'] ?? null) ? '—' : json_encode($change['old'])) }}</del></td>
+                                                            <td class="text-success">{{ is_scalar($change['new'] ?? null) ? $change['new'] : (blank($change['new'] ?? null) ? '—' : json_encode($change['new'])) }}</td>
+                                                        </tr>
+                                                    @endforeach
+                                                </tbody>
+                                            </table>
+                                        </details>
                                     @endif
                                 </td>
                                 <td class="text-secondary small">{{ $log->ip_address }}</td>

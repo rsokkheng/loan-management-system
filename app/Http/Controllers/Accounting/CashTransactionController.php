@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Accounting;
 
 use App\Enums\AccountType;
+use App\Enums\Currency;
 use App\Enums\JournalType;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\CashTransactionRequest;
 use App\Models\Account;
 use App\Models\Branch;
 use App\Services\BranchContext;
+use App\Services\CurrencyContext;
 use App\Services\LedgerService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -49,6 +51,7 @@ class CashTransactionController extends Controller
             ],
             branchId: $context->forNewRecord($request->integer('branch_id') ?: null),
             user: $request->user(),
+            currency: Currency::tryFrom((string) $request->validated('currency')) ?? app(CurrencyContext::class)->current(),
         );
 
         return redirect()->route('accounting.journal.show', $entry)

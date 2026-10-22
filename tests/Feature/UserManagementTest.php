@@ -58,11 +58,10 @@ class UserManagementTest extends TestCase
         $this->actingAs($admin)->put(route('settings.update'), [
             'company_name' => 'Acme Finance',
             'currency_code' => 'KHR',
-            'currency_symbol' => '៛',
         ])->assertSessionHas('success');
 
-        $this->assertSame('៛', Setting::get('currency_symbol'));
-        $this->actingAs($admin)->get(route('dashboard'))->assertSee('Acme Finance')->assertSee('៛0.00');
+        $this->assertSame('KHR', Setting::get('currency_code'));
+        $this->actingAs($admin)->get(route('dashboard'))->assertSee('Acme Finance')->assertSee('0៛');
     }
 
     public function test_users_can_change_their_password(): void

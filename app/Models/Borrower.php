@@ -88,7 +88,7 @@ class Borrower extends Model
     public function hasOpenLoan(): bool
     {
         return $this->loans()
-            ->whereIn('status', [LoanStatus::Pending, LoanStatus::Approved, LoanStatus::Active])
+            ->whereIn('status', [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Approved, LoanStatus::Active])
             ->exists();
     }
 
@@ -106,6 +106,14 @@ class Borrower extends Model
     public function documents(): HasMany
     {
         return $this->hasMany(BorrowerDocument::class);
+    }
+
+    /**
+     * @return HasMany<FamilyMember, $this>
+     */
+    public function familyMembers(): HasMany
+    {
+        return $this->hasMany(FamilyMember::class)->orderBy('id');
     }
 
     /**

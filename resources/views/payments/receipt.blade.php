@@ -29,15 +29,24 @@
 
     <table class="table table-sm">
         <tr><td class="text-secondary">{{ __('Loan reference') }}</td><td class="text-end">{{ $payment->loan->reference }}</td></tr>
+        @if ($payment->is_recovery)
+            <tr><td class="text-secondary">{{ __('Payment type') }}</td><td class="text-end">{{ __('Recovery of written-off loan') }}</td></tr>
+        @endif
         <tr><td class="text-secondary">{{ __('Payment method') }}</td><td class="text-end">{{ $payment->method->label() }}</td></tr>
         @if ($payment->transaction_reference)
             <tr><td class="text-secondary">{{ __('Transaction ref.') }}</td><td class="text-end">{{ $payment->transaction_reference }}</td></tr>
         @endif
-        <tr><td class="text-secondary">{{ __('Principal') }}</td><td class="text-end">@money($payment->principal_amount)</td></tr>
-        <tr><td class="text-secondary">{{ __('Interest') }}</td><td class="text-end">@money($payment->interest_amount)</td></tr>
-        <tr><td class="text-secondary">{{ __('Penalty') }}</td><td class="text-end">@money($payment->penalty_amount)</td></tr>
-        <tr class="fs-5 fw-bold"><td>{{ __('Total paid') }}</td><td class="text-end">@money($payment->amount)</td></tr>
-        <tr><td class="text-secondary">{{ __('Balance remaining') }}</td><td class="text-end">@money($payment->loan->outstanding_balance)</td></tr>
+        <tr><td class="text-secondary">{{ __('Principal') }}</td><td class="text-end">@money($payment->principal_amount, $payment->loan->currency)</td></tr>
+        <tr><td class="text-secondary">{{ __('Interest') }}</td><td class="text-end">@money($payment->interest_amount, $payment->loan->currency)</td></tr>
+        <tr><td class="text-secondary">{{ __('Penalty') }}</td><td class="text-end">@money($payment->penalty_amount, $payment->loan->currency)</td></tr>
+        @if ($payment->is_settlement)
+            <tr><td class="text-secondary">{{ __('Early settlement fee') }}</td><td class="text-end">@money($payment->settlement_fee, $payment->loan->currency)</td></tr>
+        @endif
+        @if ($payment->is_settlement)
+            <tr><td class="text-secondary">{{ __('Future interest waived') }}</td><td class="text-end">@money($payment->interest_waived, $payment->loan->currency)</td></tr>
+        @endif
+        <tr class="fs-5 fw-bold"><td>{{ __('Total paid') }}</td><td class="text-end">@money($payment->amount, $payment->loan->currency)</td></tr>
+        <tr><td class="text-secondary">{{ __('Balance remaining') }}</td><td class="text-end">@money($payment->loan->outstanding_balance, $payment->loan->currency)</td></tr>
     </table>
 
     <div class="d-flex justify-content-between align-items-end mt-5 small">

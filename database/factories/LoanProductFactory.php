@@ -2,8 +2,10 @@
 
 namespace Database\Factories;
 
+use App\Enums\Currency;
 use App\Enums\InterestMethod;
 use App\Enums\RepaymentFrequency;
+use App\Enums\ScheduleType;
 use App\Models\LoanProduct;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -22,6 +24,7 @@ class LoanProductFactory extends Factory
         return [
             'name' => fake()->unique()->words(2, true).' Loan',
             'code' => fake()->unique()->lexify('???'),
+            'currency' => Currency::Usd,
             'description' => fake()->sentence(),
             'interest_rate' => 24,
             'interest_method' => InterestMethod::ReducingBalance,
@@ -40,6 +43,23 @@ class LoanProductFactory extends Factory
     public function flat(): static
     {
         return $this->state(fn (array $attributes) => ['interest_method' => InterestMethod::Flat]);
+    }
+
+    /**
+     * A riel-denominated product with amounts suited to KHR.
+     */
+    public function khr(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'currency' => Currency::Khr,
+            'min_amount' => 400000,
+            'max_amount' => 200000000,
+        ]);
+    }
+
+    public function flexible(): static
+    {
+        return $this->state(fn (array $attributes) => ['schedule_type' => ScheduleType::Flexible]);
     }
 
     public function inactive(): static

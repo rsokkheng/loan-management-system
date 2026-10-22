@@ -42,7 +42,7 @@
                                 <td><a href="{{ route('loans.show', $payment->loan) }}">{{ $payment->loan->reference }}</a></td>
                                 <td>{{ $payment->loan->borrower->full_name }}</td>
                                 <td>{{ $payment->method->label() }}</td>
-                                <td class="text-end fw-semibold text-success">@money($payment->amount)</td>
+                                <td class="text-end fw-semibold text-success">@money($payment->amount, $payment->loan->currency)</td>
                                 <td>{{ $payment->receiver?->name }}</td>
                                 <td class="text-end"><a href="{{ route('payments.receipt', $payment) }}" target="_blank" class="btn btn-sm btn-outline-secondary" title="{{ __('Print receipt') }}"><i class="bi bi-printer"></i></a></td>
                             </tr>

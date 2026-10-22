@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Enums\Currency;
 use Illuminate\Contracts\Validation\ValidationRule;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -17,6 +18,7 @@ class JournalEntryRequest extends FormRequest
     {
         return [
             'branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
+            'currency' => ['nullable', Rule::enum(Currency::class)],
             'entry_date' => ['required', 'date', 'before_or_equal:today'],
             'description' => ['required', 'string', 'max:255'],
             'lines' => ['required', 'array', 'min:2'],

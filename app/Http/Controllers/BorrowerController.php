@@ -62,6 +62,7 @@ class BorrowerController extends Controller
             'branch',
             'creator',
             'documents.uploader',
+            'familyMembers',
             'loans' => fn ($query) => $query->with('product')->latest('id'),
         ]);
 

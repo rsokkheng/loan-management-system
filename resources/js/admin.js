@@ -65,6 +65,12 @@ document.addEventListener('DOMContentLoaded', () => {
         bootstrap.Modal.getOrCreateInstance(paymentModalEl).show();
     }
 
+    // After a failed submit, reopen the modal the form came from (forms send a hidden _modal field).
+    const failedModal = document.body.dataset.reopenModal && document.getElementById(document.body.dataset.reopenModal);
+    if (failedModal) {
+        bootstrap.Modal.getOrCreateInstance(failedModal).show();
+    }
+
     // Auto-dismiss toasts.
     document.querySelectorAll('.toast').forEach((el) => new bootstrap.Toast(el, { delay: 5000 }).show());
 
@@ -78,18 +84,83 @@ document.addEventListener('DOMContentLoaded', () => {
         const termInput = document.getElementById('term');
         const info = document.getElementById('product-info');
         const estimate = document.getElementById('loan-estimate');
-        const currency = info?.dataset.currency || '$';
         const t = (key) => (window.i18n && window.i18n[key]) || key;
-        const fmt = (n) => currency + Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        let currency = { symbol: '$', precision: 2, suffix: false };
+        const fmt = (n) => {
+            const number = Number(n).toLocaleString(undefined, { minimumFractionDigits: currency.precision, maximumFractionDigits: currency.precision });
+            return currency.suffix ? number + currency.symbol : currency.symbol + number;
+        };
+
+        // Flexible schedule editor: rows of due date + principal.
+        const planBox = document.getElementById('flexible-plan');
+        const planRows = planBox?.querySelector('[data-plan-rows]');
+        const termWrapper = termInput.closest('[class*="mb-3"]');
+        const rows = () => [...planRows.querySelectorAll('[data-plan-row]')];
+        const renumber = () => rows().forEach((row, i) => {
+            row.querySelector('[data-plan-number]').textContent = i + 1;
+            row.querySelector('[data-plan-date]').name = `plan[${i}][due_date]`;
+            row.querySelector('[data-plan-principal]').name = `plan[${i}][principal]`;
+        });
+        const planTotal = () => rows().reduce((sum, row) => sum + (parseFloat(row.querySelector('[data-plan-principal]').value) || 0), 0);
+        const showPlanTotal = () => {
+            const total = planTotal();
+            const cell = planBox.querySelector('[data-plan-total]');
+            cell.textContent = fmt(total);
+            cell.classList.toggle('text-danger', Math.abs(total - (parseFloat(amountInput.value) || 0)) > 0.005);
+        };
+        const setFlexible = (isFlexible) => {
+            planBox.hidden = !isFlexible;
+            planBox.querySelectorAll('input').forEach((input) => { input.disabled = !isFlexible; });
+            termWrapper.hidden = isFlexible;
+            termInput.required = !isFlexible;
+        };
+
+        planBox?.querySelector('[data-plan-add]').addEventListener('click', () => {
+            const last = rows().at(-1);
+            const copy = last.cloneNode(true);
+            copy.querySelectorAll('input').forEach((input) => { input.value = ''; input.classList.remove('is-invalid'); });
+            copy.querySelectorAll('.invalid-feedback').forEach((el) => el.remove());
+            planRows.append(copy);
+            renumber();
+            update();
+        });
+        planRows?.addEventListener('click', (event) => {
+            if (event.target.closest('[data-plan-remove]') && rows().length > 1) {
+                event.target.closest('[data-plan-row]').remove();
+                renumber();
+                update();
+            }
+        });
+        planRows?.addEventListener('input', () => update());
+        planBox?.querySelector('[data-plan-spread]').addEventListener('click', () => {
+            const amount = parseFloat(amountInput.value) || 0;
+            const count = rows().length;
+            const factor = 10 ** currency.precision;
+            const share = Math.floor((amount / count) * factor) / factor;
+            rows().forEach((row, i) => {
+                const value = i === count - 1 ? amount - share * (count - 1) : share;
+                row.querySelector('[data-plan-principal]').value = value.toFixed(currency.precision);
+            });
+            update();
+        });
 
         const update = () => {
             const option = productSelect.selectedOptions[0];
+            if (planBox) {
+                setFlexible(option?.dataset.schedule === 'flexible');
+            }
             if (!option || !option.value) {
                 info.innerHTML = `<span class="text-secondary">${t('Select a product to see its terms.')}</span>`;
                 estimate.innerHTML = '';
                 return;
             }
             const p = option.dataset;
+            currency = { symbol: p.currencySymbol, precision: parseInt(p.currencyPrecision, 10), suffix: p.currencySuffix === '1' };
+            const symbol = amountInput.previousElementSibling;
+            if (symbol?.classList.contains('input-group-text')) {
+                symbol.textContent = currency.symbol;
+            }
+            amountInput.step = currency.precision > 0 ? (1 / 10 ** currency.precision).toString() : '1';
             amountInput.min = p.minAmount;
             amountInput.max = p.maxAmount;
             termInput.min = p.minTerm;
@@ -105,7 +176,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>`;
 
             const principal = parseFloat(amountInput.value);
-            const term = parseInt(termInput.value, 10);
+            const isFlexible = p.schedule === 'flexible';
+            if (isFlexible) {
+                showPlanTotal();
+            }
+            const term = isFlexible ? rows().length : parseInt(termInput.value, 10);
             if (!(principal > 0) || !(term > 0)) {
                 estimate.innerHTML = '';
                 return;
@@ -113,7 +188,23 @@ document.addEventListener('DOMContentLoaded', () => {
             const r = parseFloat(p.rate) / 100 / parseInt(p.periods, 10);
             let installment;
             let totalInterest;
-            if (p.method === 'flat') {
+            if (isFlexible) {
+                // Actual days on a 365-day year, from the application date.
+                const daily = parseFloat(p.rate) / 100 / 365;
+                let start = new Date(document.getElementById('application_date').value);
+                let balance = principal;
+                totalInterest = 0;
+                rows().forEach((row) => {
+                    const due = new Date(row.querySelector('[data-plan-date]').value);
+                    const days = Math.max(0, (due - start) / 86400000) || 0;
+                    totalInterest += (p.method === 'flat' ? principal : balance) * daily * days;
+                    balance -= parseFloat(row.querySelector('[data-plan-principal]').value) || 0;
+                    if (!Number.isNaN(due.getTime())) {
+                        start = due;
+                    }
+                });
+                installment = (principal + totalInterest) / term;
+            } else if (p.method === 'flat') {
                 totalInterest = principal * r * term;
                 installment = (principal + totalInterest) / term;
             } else {
@@ -183,6 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('interest_method').value = p.method;
             document.getElementById('repayment_frequency').value = p.frequency;
             document.getElementById('processing_fee_percent').value = p.fee;
+            document.getElementById('currency').value = p.currency;
         });
     }
 });

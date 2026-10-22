@@ -22,8 +22,11 @@ class Setting extends Model
         'company_phone' => '',
         'company_address' => '',
         'currency_code' => 'USD',
-        'currency_symbol' => '$',
         'receipt_footer' => 'Thank you for your payment.',
+        'early_settlement_fee_percent' => '0',
+        'approval_limit_manager_usd' => '',
+        'approval_limit_manager_khr' => '',
+        'require_maker_checker' => '0',
     ];
 
     /**

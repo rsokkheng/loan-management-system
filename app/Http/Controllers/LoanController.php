@@ -2,8 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Enums\CollateralType;
 use App\Enums\LoanStatus;
 use App\Enums\PaymentMethod;
+use App\Enums\Relationship;
 use App\Http\Requests\LoanRequest;
 use App\Models\ActivityLog;
 use App\Models\Borrower;
@@ -60,9 +62,9 @@ class LoanController extends Controller
 
     public function show(Loan $loan): View
     {
-        $loan->load(['branch', 'borrower', 'product', 'officer', 'approver', 'rejecter', 'disburser', 'installments', 'payments.receiver']);
+        $loan->load(['branch', 'borrower', 'product', 'officer', 'approver', 'rejecter', 'disburser', 'returner', 'restructures.creator', 'installments', 'payments.receiver', 'guarantors', 'collaterals.releaser']);
 
-        $preview = $loan->status === LoanStatus::Pending || $loan->status === LoanStatus::Approved
+        $preview = in_array($loan->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Approved], true)
             ? $this->loans->quoteFor($loan, $loan->repayment_frequency->addPeriods(today(), 1))
             : null;
 
@@ -70,6 +72,8 @@ class LoanController extends Controller
             'loan' => $loan,
             'preview' => $preview,
             'paymentMethods' => PaymentMethod::cases(),
+            'relationships' => Relationship::cases(),
+            'collateralTypes' => CollateralType::cases(),
             'overdueBalance' => $loan->installments->filter->isOverdue()->sum('balance'),
         ]);
     }
@@ -94,7 +98,7 @@ class LoanController extends Controller
     {
         Gate::authorize('delete-records');
 
-        if (! in_array($loan->status, [LoanStatus::Pending, LoanStatus::Rejected], true)) {
+        if (! in_array($loan->status, [LoanStatus::Pending, LoanStatus::Returned, LoanStatus::Rejected], true)) {
             return back()->with('error', __('Only pending or rejected applications can be deleted.'));
         }
 

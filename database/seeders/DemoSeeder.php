@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Enums\Currency;
 use App\Enums\InterestMethod;
 use App\Enums\JournalType;
 use App\Enums\PaymentMethod;
@@ -72,6 +73,7 @@ class DemoSeeder extends Seeder
             ['name' => 'Micro Business Loan', 'code' => 'MBL', 'interest_rate' => 18, 'interest_method' => InterestMethod::ReducingBalance, 'repayment_frequency' => RepaymentFrequency::Monthly, 'min_amount' => 500, 'max_amount' => 10000, 'min_term' => 6, 'max_term' => 24, 'processing_fee_percent' => 1.5, 'late_penalty_percent' => 5, 'grace_period_days' => 3, 'description' => 'Working capital for small shops and market vendors.'],
             ['name' => 'Personal Loan', 'code' => 'PL', 'interest_rate' => 24, 'interest_method' => InterestMethod::Flat, 'repayment_frequency' => RepaymentFrequency::Monthly, 'min_amount' => 200, 'max_amount' => 5000, 'min_term' => 3, 'max_term' => 12, 'processing_fee_percent' => 2, 'late_penalty_percent' => 5, 'grace_period_days' => 5, 'description' => 'Unsecured consumer loan for salaried borrowers.'],
             ['name' => 'Agriculture Loan', 'code' => 'AGRI', 'interest_rate' => 15, 'interest_method' => InterestMethod::ReducingBalance, 'repayment_frequency' => RepaymentFrequency::Monthly, 'min_amount' => 1000, 'max_amount' => 20000, 'min_term' => 6, 'max_term' => 36, 'processing_fee_percent' => 1, 'late_penalty_percent' => 3, 'grace_period_days' => 7, 'description' => 'Seasonal financing for farmers.'],
+            ['name' => 'Riel Micro Loan', 'code' => 'KHR-MICRO', 'currency' => Currency::Khr, 'interest_rate' => 18, 'interest_method' => InterestMethod::ReducingBalance, 'repayment_frequency' => RepaymentFrequency::Monthly, 'min_amount' => 1000000, 'max_amount' => 20000000, 'min_term' => 6, 'max_term' => 24, 'processing_fee_percent' => 1, 'late_penalty_percent' => 5, 'grace_period_days' => 3, 'description' => 'Small loans in Khmer Riel for local traders.'],
             ['name' => 'Weekly Group Loan', 'code' => 'WGL', 'interest_rate' => 30, 'interest_method' => InterestMethod::Flat, 'repayment_frequency' => RepaymentFrequency::Weekly, 'min_amount' => 100, 'max_amount' => 2000, 'min_term' => 8, 'max_term' => 52, 'processing_fee_percent' => 1, 'late_penalty_percent' => 2, 'grace_period_days' => 2, 'description' => 'Small weekly-repayment loans for solidarity groups.'],
         ])->map(fn (array $product) => LoanProduct::create($product));
 
@@ -91,7 +93,9 @@ class DemoSeeder extends Seeder
 
             $product = $products->random();
             $term = fake()->numberBetween($product->min_term, min($product->max_term, 18));
-            $amount = round(fake()->numberBetween((int) $product->min_amount, (int) min($product->max_amount, 8000)) / 50) * 50;
+            $amount = $product->currency === Currency::Khr
+                ? round(fake()->numberBetween((int) $product->min_amount, (int) $product->max_amount) / 100000) * 100000
+                : round(fake()->numberBetween((int) $product->min_amount, (int) min($product->max_amount, 8000)) / 50) * 50;
             $appliedAt = Carbon::today()->subDays(fake()->numberBetween(5, 360));
 
             $loan = $loans->apply([

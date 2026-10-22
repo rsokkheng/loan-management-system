@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\UserRole;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -43,6 +44,27 @@ class User extends Authenticatable
     public function isAdmin(): bool
     {
         return $this->role === UserRole::Admin;
+    }
+
+    /**
+     * Largest principal this user may approve in the currency, or null for no limit.
+     */
+    public function approvalLimit(Currency $currency): ?float
+    {
+        if ($this->isAdmin()) {
+            return null;
+        }
+
+        $limit = Setting::get('approval_limit_'.$this->role->value.'_'.strtolower($currency->value));
+
+        return filled($limit) ? (float) $limit : null;
+    }
+
+    public function canApproveAmount(float $principal, Currency $currency): bool
+    {
+        $limit = $this->approvalLimit($currency);
+
+        return $limit === null || $principal <= $limit;
     }
 
     /**

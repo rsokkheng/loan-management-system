@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Enums\Currency;
 use App\Enums\JournalType;
 use App\Models\Concerns\BelongsToBranch;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
@@ -11,7 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 
-#[Fillable(['branch_id', 'entry_date', 'type', 'description', 'source_type', 'source_id', 'reversal_of_id', 'created_by'])]
+#[Fillable(['branch_id', 'currency', 'entry_date', 'type', 'description', 'source_type', 'source_id', 'reversal_of_id', 'created_by'])]
 class JournalEntry extends Model
 {
     use BelongsToBranch;
@@ -33,6 +34,7 @@ class JournalEntry extends Model
     protected function casts(): array
     {
         return [
+            'currency' => Currency::class,
             'entry_date' => 'date',
             'type' => JournalType::class,
         ];

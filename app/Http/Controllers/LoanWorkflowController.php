@@ -21,6 +21,22 @@ class LoanWorkflowController extends Controller
         return back()->with('success', __('Loan :reference approved. It is now ready for disbursement.', ['reference' => $loan->reference]));
     }
 
+    public function returnForCorrection(Request $request, Loan $loan): RedirectResponse
+    {
+        $validated = $request->validate(['return_reason' => ['required', 'string', 'max:1000']]);
+
+        $this->loans->returnForCorrection($loan, $request->user(), $validated['return_reason']);
+
+        return back()->with('success', __('Loan :reference returned to the loan officer for correction.', ['reference' => $loan->reference]));
+    }
+
+    public function resubmit(Loan $loan): RedirectResponse
+    {
+        $this->loans->resubmit($loan);
+
+        return back()->with('success', __('Loan :reference resubmitted for approval.', ['reference' => $loan->reference]));
+    }
+
     public function reject(Request $request, Loan $loan): RedirectResponse
     {
         $validated = $request->validate(['rejection_reason' => ['required', 'string', 'max:1000']]);

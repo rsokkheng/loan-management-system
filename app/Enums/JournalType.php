@@ -7,6 +7,7 @@ enum JournalType: string
     case Disbursement = 'disbursement';
     case Repayment = 'repayment';
     case WriteOff = 'write_off';
+    case Recovery = 'recovery';
     case Expense = 'expense';
     case Income = 'income';
     case Manual = 'manual';
@@ -18,6 +19,7 @@ enum JournalType: string
             self::Disbursement => __('Disbursement'),
             self::Repayment => __('Repayment'),
             self::WriteOff => __('Write Off'),
+            self::Recovery => __('Recovery'),
             self::Expense => __('Expense'),
             self::Income => __('Income'),
             self::Manual => __('Manual Entry'),
@@ -31,6 +33,7 @@ enum JournalType: string
             self::Disbursement => 'primary',
             self::Repayment => 'success',
             self::WriteOff => 'danger',
+            self::Recovery => 'success',
             self::Expense => 'warning',
             self::Income => 'info',
             self::Manual => 'secondary',
@@ -43,6 +46,6 @@ enum JournalType: string
      */
     public function isAutomatic(): bool
     {
-        return in_array($this, [self::Disbursement, self::Repayment, self::WriteOff], true);
+        return in_array($this, [self::Disbursement, self::Repayment, self::WriteOff, self::Recovery], true);
     }
 }

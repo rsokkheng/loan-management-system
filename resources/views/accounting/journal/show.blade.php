@@ -47,8 +47,8 @@
                         <tfoot class="table-light fw-semibold">
                             <tr>
                                 <td colspan="2">{{ __('Total') }}</td>
-                                <td class="text-end">@money($entry->lines->sum('debit'))</td>
-                                <td class="text-end">@money($entry->lines->sum('credit'))</td>
+                                <td class="text-end">@money($entry->lines->sum('debit'), $entry->currency)</td>
+                                <td class="text-end">@money($entry->lines->sum('credit'), $entry->currency)</td>
                             </tr>
                         </tfoot>
                     </table>

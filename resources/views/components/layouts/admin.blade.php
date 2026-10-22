@@ -21,7 +21,7 @@
     @vite(['resources/css/admin.css', 'resources/js/admin.js'])
     @stack('styles')
 </head>
-<body class="layout-fixed sidebar-expand-lg bg-body-tertiary">
+<body class="layout-fixed sidebar-expand-lg bg-body-tertiary" @if ($errors->any() && old('_modal')) data-reopen-modal="{{ old('_modal') }}" @endif>
 <div class="app-wrapper">
     {{-- Header --}}
     <nav class="app-header navbar navbar-expand bg-body border-bottom">
@@ -74,6 +74,27 @@
                         <span class="badge text-bg-light border mx-2"><i class="bi bi-building me-1"></i>{{ $currentBranch->name }}</span>
                     </li>
                 @endif
+
+                {{-- Reporting currency --}}
+                <li class="nav-item dropdown">
+                    <a href="#" class="nav-link dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false" aria-label="{{ __('Reporting currency') }}">
+                        <i class="bi bi-currency-exchange me-1"></i>
+                        <span class="d-none d-sm-inline">{{ $reportingCurrency->value }}</span>
+                    </a>
+                    <div class="dropdown-menu dropdown-menu-end">
+                        <h6 class="dropdown-header">{{ __('Reporting currency') }}</h6>
+                        @foreach (\App\Enums\Currency::cases() as $currency)
+                            <form method="POST" action="{{ route('currency.switch') }}">
+                                @csrf
+                                <input type="hidden" name="currency" value="{{ $currency->value }}">
+                                <button type="submit" class="dropdown-item d-flex justify-content-between align-items-center {{ $reportingCurrency === $currency ? 'active' : '' }}">
+                                    {{ $currency->symbol() }} {{ $currency->label() }}
+                                    @if ($reportingCurrency === $currency)<i class="bi bi-check-lg ms-3"></i>@endif
+                                </button>
+                            </form>
+                        @endforeach
+                    </div>
+                </li>
 
                 {{-- Language --}}
                 <li class="nav-item dropdown">
@@ -214,6 +235,8 @@
         </div>
     </div>
 </div>
+
+@stack('modals')
 
 @stack('scripts')
 </body>

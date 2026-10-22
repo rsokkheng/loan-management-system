@@ -41,7 +41,7 @@
                                 <td><x-badge :status="$entry->type" /></td>
                                 <td class="text-wrap">{{ \Illuminate\Support\Str::limit($entry->description, 70) }}</td>
                                 <td>{{ $entry->branch?->name ?? '—' }}</td>
-                                <td class="text-end fw-semibold">@money($entry->lines_sum_debit)</td>
+                                <td class="text-end fw-semibold">@money($entry->lines_sum_debit, $entry->currency)</td>
                                 <td>{{ $entry->creator?->name ?? __('System') }}</td>
                             </tr>
                         @empty

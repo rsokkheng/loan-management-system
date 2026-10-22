@@ -32,6 +32,7 @@ class Account extends Model
         ['code' => '4000', 'name' => 'Interest Income', 'name_km' => 'ចំណូលការប្រាក់', 'type' => AccountType::Income, 'system_key' => 'interest_income'],
         ['code' => '4010', 'name' => 'Processing Fee Income', 'name_km' => 'ចំណូលកម្រៃសេវា', 'type' => AccountType::Income, 'system_key' => 'fee_income'],
         ['code' => '4020', 'name' => 'Penalty Income', 'name_km' => 'ចំណូលពិន័យ', 'type' => AccountType::Income, 'system_key' => 'penalty_income'],
+        ['code' => '4030', 'name' => 'Bad Debt Recovered', 'name_km' => 'បំណុលអាក្រក់ប្រមូលបានវិញ', 'type' => AccountType::Income, 'system_key' => 'recovery_income'],
         ['code' => '4900', 'name' => 'Other Income', 'name_km' => 'ចំណូលផ្សេងៗ', 'type' => AccountType::Income],
         ['code' => '5000', 'name' => 'Salaries & Wages', 'name_km' => 'ប្រាក់បៀវត្សរ៍', 'type' => AccountType::Expense],
         ['code' => '5010', 'name' => 'Rent', 'name_km' => 'ថ្លៃឈ្នួល', 'type' => AccountType::Expense],

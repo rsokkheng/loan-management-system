@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Setting;
 use App\Models\User;
 use App\Services\BranchContext;
+use App\Services\CurrencyContext;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -42,10 +43,11 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $request) => Limit::perMinute(5)
             ->by(Str::lower((string) $request->input('email')).'|'.$request->ip()));
 
-        Blade::directive('money', fn (string $expression) => "<?php echo e(\\App\\Models\\Setting::get('currency_symbol', '\$').number_format((float) ({$expression}), 2)); ?>");
+        Blade::directive('money', fn (string $expression) => "<?php echo e(\\App\\Enums\\Currency::display({$expression})); ?>");
 
         View::composer('*', function ($view): void {
             $view->with('appSettings', Setting::allValues());
+            $view->with('reportingCurrency', app(CurrencyContext::class)->current());
         });
 
         View::composer(['components.layouts.admin', 'accounting.*', 'borrowers.*', 'loans.*', 'dashboard'], function ($view): void {

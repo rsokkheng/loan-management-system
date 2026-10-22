@@ -9,11 +9,12 @@ use Carbon\CarbonInterface;
 use Illuminate\Support\Collection;
 
 /**
- * Builds financial statements from journal lines, respecting the current branch.
+ * Builds financial statements from journal lines, respecting the current branch and
+ * reporting currency (each currency keeps its own set of books).
  */
 class AccountingReportService
 {
-    public function __construct(private BranchContext $branches) {}
+    public function __construct(private BranchContext $branches, private CurrencyContext $currencies) {}
 
     /**
      * Sum of debits and credits per account for entries in the date range.
@@ -27,6 +28,7 @@ class AccountingReportService
         return JournalLine::query()->toBase()
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
             ->when($branchId, fn ($query) => $query->where('journal_entries.branch_id', $branchId))
+            ->where('journal_entries.currency', $this->currencies->current())
             ->when($from, fn ($query) => $query->whereDate('journal_entries.entry_date', '>=', $from))
             ->whereDate('journal_entries.entry_date', '<=', $to)
             ->groupBy('journal_lines.account_id')
@@ -100,6 +102,56 @@ class AccountingReportService
     }
 
     /**
+     * Income and expense per branch for the period, split by the categories
+     * management looks at. Entries with no branch are keyed under 0 (head office).
+     *
+     * @return Collection<int, array{interest: float, fees: float, penalty: float, recovery: float, other_income: float, loan_loss: float, operating: float, income: float, expenses: float, net: float}>
+     */
+    public function profitByBranch(CarbonInterface $from, CarbonInterface $to): Collection
+    {
+        $branchId = $this->branches->id();
+
+        $rows = JournalLine::query()->toBase()
+            ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')
+            ->join('accounts', 'accounts.id', '=', 'journal_lines.account_id')
+            ->whereIn('accounts.type', [AccountType::Income->value, AccountType::Expense->value])
+            ->where('journal_entries.currency', $this->currencies->current())
+            ->when($branchId, fn ($query) => $query->where('journal_entries.branch_id', $branchId))
+            ->whereDate('journal_entries.entry_date', '>=', $from)
+            ->whereDate('journal_entries.entry_date', '<=', $to)
+            ->groupBy('journal_entries.branch_id', 'accounts.type', 'accounts.system_key')
+            ->selectRaw('journal_entries.branch_id, accounts.type, accounts.system_key, SUM(journal_lines.credit) - SUM(journal_lines.debit) as net_credit')
+            ->get();
+
+        $categoryOf = fn (object $row) => match (true) {
+            $row->type === AccountType::Expense->value => $row->system_key === 'loan_loss' ? 'loan_loss' : 'operating',
+            default => match ($row->system_key) {
+                'interest_income' => 'interest',
+                'fee_income' => 'fees',
+                'penalty_income' => 'penalty',
+                'recovery_income' => 'recovery',
+                default => 'other_income',
+            },
+        };
+
+        return $rows->groupBy(fn (object $row) => (int) $row->branch_id)->map(function (Collection $lines) use ($categoryOf) {
+            $totals = array_fill_keys(['interest', 'fees', 'penalty', 'recovery', 'other_income', 'loan_loss', 'operating'], 0.0);
+
+            foreach ($lines as $line) {
+                $category = $categoryOf($line);
+                // Income accounts grow with credits, expense accounts with debits.
+                $totals[$category] += in_array($category, ['loan_loss', 'operating'], true) ? -(float) $line->net_credit : (float) $line->net_credit;
+            }
+
+            $totals = array_map(fn (float $value) => round($value, 2), $totals);
+            $income = round($totals['interest'] + $totals['fees'] + $totals['penalty'] + $totals['recovery'] + $totals['other_income'], 2);
+            $expenses = round($totals['loan_loss'] + $totals['operating'], 2);
+
+            return $totals + ['income' => $income, 'expenses' => $expenses, 'net' => round($income - $expenses, 2)];
+        });
+    }
+
+    /**
      * Assets = Liabilities + Equity, where equity includes all profit earned to date.
      *
      * @return array{assets: Collection<int, Account>, liabilities: Collection<int, Account>, equity: Collection<int, Account>, earnings: float, total_assets: float, total_liabilities: float, total_equity: float}
@@ -141,6 +193,7 @@ class AccountingReportService
             ->with('entry')
             ->where('account_id', $account->id)
             ->whereHas('entry', fn ($query) => $query
+                ->where('currency', $this->currencies->current())
                 ->whereDate('entry_date', '>=', $from)
                 ->whereDate('entry_date', '<=', $to))
             ->join('journal_entries', 'journal_entries.id', '=', 'journal_lines.journal_entry_id')

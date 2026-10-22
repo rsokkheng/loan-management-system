@@ -22,7 +22,7 @@
                         <dl class="row small mb-0">
                             <dt class="col-6 text-secondary fw-normal">{{ __('Code') }}</dt><dd class="col-6"><code>{{ $product->code }}</code></dd>
                             <dt class="col-6 text-secondary fw-normal">{{ __('Repayment') }}</dt><dd class="col-6">{{ $product->repayment_frequency->label() }}</dd>
-                            <dt class="col-6 text-secondary fw-normal">{{ __('Amount') }}</dt><dd class="col-6">@money($product->min_amount) – @money($product->max_amount)</dd>
+                            <dt class="col-6 text-secondary fw-normal">{{ __('Amount') }}</dt><dd class="col-6">@money($product->min_amount, $product->currency) – @money($product->max_amount, $product->currency)</dd>
                             <dt class="col-6 text-secondary fw-normal">{{ __('Term') }}</dt><dd class="col-6">{{ __(':min – :max installments', ['min' => $product->min_term, 'max' => $product->max_term]) }}</dd>
                             <dt class="col-6 text-secondary fw-normal">{{ __('Processing fee') }}</dt><dd class="col-6">{{ $product->processing_fee_percent }}%</dd>
                             <dt class="col-6 text-secondary fw-normal">{{ __('Late penalty') }}</dt><dd class="col-6">{{ __(':percent% after :days day(s)', ['percent' => (float) $product->late_penalty_percent, 'days' => $product->grace_period_days]) }}</dd>
